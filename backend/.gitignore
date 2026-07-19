@@ -1,0 +1,13 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+models/*
+!models/.gitkeep
+generated_documents/*
+!generated_documents/.gitkeep
+templates/4-Human-Participants.pdf

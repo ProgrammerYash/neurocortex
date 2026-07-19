@@ -1,0 +1,55 @@
+{
+  "template_version": "isef-form4-2023-2024-official",
+  "template_id": "isef-human-participants-form4-2023-2024",
+  "page_size": [612, 792],
+  "fields": {
+    "student_researcher_names": {"page": 0, "x": 130, "y": 662, "size": 9, "max_width": 155},
+    "project_title": {"page": 0, "x": 380, "y": 662, "size": 9, "max_width": 200},
+    "adult_sponsor": {"page": 0, "x": 130, "y": 636, "size": 9, "max_width": 155},
+    "adult_sponsor_contact": {"page": 0, "x": 380, "y": 636, "size": 9, "max_width": 200}
+  },
+  "checkboxes": {
+    "research_plan_submitted": {"page": 0, "x": 42, "y": 617},
+    "surveys_attached": {"page": 0, "x": 42, "y": 595},
+    "published_instruments_legally_obtained": {"page": 0, "x": 63, "y": 583},
+    "informed_consent_attached": {"page": 0, "x": 42, "y": 571},
+    "qualified_scientist_yes": {"page": 0, "x": 42, "y": 559},
+    "qualified_scientist_no": {"page": 0, "x": 84, "y": 559},
+    "full_committee_review": {"page": 0, "x": 42, "y": 476},
+    "risk_level_minimal": {"page": 0, "x": 270, "y": 463},
+    "risk_level_more_than_minimal": {"page": 0, "x": 390, "y": 463},
+    "qualified_scientist_required_yes": {"page": 0, "x": 270, "y": 442},
+    "qualified_scientist_required_no": {"page": 0, "x": 372, "y": 442},
+    "risk_assessment_required_yes": {"page": 0, "x": 270, "y": 430},
+    "risk_assessment_required_no": {"page": 0, "x": 372, "y": 430},
+    "minor_assent_required_yes": {"page": 0, "x": 102, "y": 407},
+    "minor_assent_required_no": {"page": 0, "x": 191, "y": 407},
+    "minor_assent_required_na": {"page": 0, "x": 271, "y": 407},
+    "parental_permission_required_yes": {"page": 0, "x": 102, "y": 384},
+    "parental_permission_required_no": {"page": 0, "x": 191, "y": 384},
+    "parental_permission_required_na": {"page": 0, "x": 271, "y": 384},
+    "adult_informed_consent_required_yes": {"page": 0, "x": 102, "y": 359},
+    "adult_informed_consent_required_no": {"page": 0, "x": 191, "y": 359},
+    "adult_informed_consent_required_na": {"page": 0, "x": 271, "y": 359}
+  },
+  "signer_rows": [
+    {
+      "role": "Medical or Mental Health Professional",
+      "printed_name": {"x": 120, "y": 255, "size": 8},
+      "degree_or_license": {"x": 330, "y": 255, "size": 8},
+      "approval_date": {"x": 525, "y": 255, "size": 8}
+    },
+    {
+      "role": "Educator",
+      "printed_name": {"x": 120, "y": 161, "size": 8},
+      "degree_or_license": {"x": 330, "y": 161, "size": 8},
+      "approval_date": {"x": 525, "y": 161, "size": 8}
+    },
+    {
+      "role": "School Administrator",
+      "printed_name": {"x": 120, "y": 76, "size": 8},
+      "degree_or_license": {"x": 330, "y": 76, "size": 8},
+      "approval_date": {"x": 525, "y": 76, "size": 8}
+    }
+  ]
+}

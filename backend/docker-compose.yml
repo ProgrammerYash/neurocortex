@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: neurocortex-db
+    environment:
+      POSTGRES_USER: neurocortex
+      POSTGRES_PASSWORD: neurocortex
+      POSTGRES_DB: neurocortex
+    ports:
+      - "5432:5432"
+    volumes:
+      - neurocortex_pgdata:/var/lib/postgresql/data
+
+volumes:
+  neurocortex_pgdata:
