@@ -27,6 +27,28 @@ export function clearToken() {
   }
 }
 
+export function getTokenPayload() {
+  const token = getToken();
+  if (!token) return null;
+  try {
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch {
+    return null;
+  }
+}
+
+export function getResearcherProfileFromToken() {
+  const payload = getTokenPayload();
+  if (!payload || payload.role !== 'researcher' || !payload.sub) return null;
+  return {
+    id: payload.sub,
+    role: 'researcher',
+    displayName: payload.display_name ?? 'Researcher',
+    joinedAt: Date.now(),
+    joinedDate: dateToday(),
+  };
+}
+
 export function mapApiParticipantToProfile(participant, publicId) {
   const id = publicId || participant?.public_id;
   const joinedAt = participant?.joined_at

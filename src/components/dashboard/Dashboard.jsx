@@ -6,6 +6,7 @@ import TodayTab from './TodayTab.jsx';
 import ProgressTab from './ProgressTab.jsx';
 import ConsentStatusTab from './ConsentStatusTab.jsx';
 import { fetchMyConsentStatus } from '../../store/consent.js';
+import { calcBurnout } from '../../utils/burnout.js';
 
 export default function Dashboard({user,sessions,todaySessions,todayComplete,gameData,countdown,onNavigate,onLogout,showToast}) {
   const [tab,setTab]=useState("today");
@@ -15,13 +16,14 @@ export default function Dashboard({user,sessions,todaySessions,todayComplete,gam
   const hasNasaTLX=!!todaySessions?.nasaTLX;
   const modules=[
     {key:"reaction",  label:"Reaction Time",      icon:"⚡",time:"~1 min", done:!!todaySessions.reaction},
-    {key:"typing",    label:"Typing Biomarkers",   icon:"⌨️",time:"30 sec",done:!!todaySessions.typing},
+    {key:"typing",    label:"Typing Biomarkers",   icon:"⌨️",time:"3 rounds",done:!!todaySessions.typing},
     {key:"memory",    label:"Memory Test",          icon:"🧩",time:"~1 min",done:!!todaySessions.memory},
     {key:"attention", label:"Attention / Stroop",   icon:"🎯",time:"~45 sec",done:!!todaySessions.attention},
     {key:"survey",    label:"Daily Survey",         icon:"📋",time:"~1 min", done:!!todaySessions.survey},
   ];
   const completed=modules.filter(m=>m.done).length;
   const pct=Math.round(completed/modules.length*100);
+  const cognitiveOverloadIndex = todayComplete ? calcBurnout(todaySessions) : null;
 
   useEffect(() => {
     let active = true;
@@ -84,7 +86,7 @@ export default function Dashboard({user,sessions,todaySessions,todayComplete,gam
         ))}
       </div>
 
-      {tab==="today"&&<TodayTab modules={modules} completed={completed} pct={pct} todayComplete={todayComplete} countdown={countdown} isWeeklyDay={isWeeklyDay} hasNasaTLX={hasNasaTLX} onNavigate={onNavigate} sessionBlockMessage={sessionBlockMessage} />}
+      {tab==="today"&&<TodayTab modules={modules} completed={completed} pct={pct} todayComplete={todayComplete} countdown={countdown} isWeeklyDay={isWeeklyDay} hasNasaTLX={hasNasaTLX} onNavigate={onNavigate} sessionBlockMessage={sessionBlockMessage} cognitiveOverloadIndex={cognitiveOverloadIndex} />}
       {tab==="progress"&&<ProgressTab sessions={sessions} />}
       {tab==="study"&&<ConsentStatusTab showToast={showToast} />}
       {tab==="neuroverse"&&<div style={{textAlign:"center",padding:"2rem"}}><Btn onClick={()=>onNavigate("neuroverse")} primary style={{padding:"14px 32px"}}>Open NeuroVerse 🌐</Btn><br/><Btn onClick={()=>onNavigate("pet")} style={{marginTop:12,padding:"12px 28px"}}>Pet Home 🏠</Btn><br/><Btn onClick={()=>onNavigate("achievements")} style={{marginTop:12,padding:"12px 28px"}}>Achievements 🏆</Btn></div>}

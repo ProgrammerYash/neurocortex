@@ -136,23 +136,16 @@ def main():
         participant = create_consented_participant(db)
         today = date.today()
 
-        try:
-            upsert_module_result(db, participant, today, "typing", TYPING)
-            raise AssertionError("Expected module order violation")
-        except SessionError as exc:
-            assert exc.error_code == "MODULE_ORDER_VIOLATION"
-        print("module order enforcement OK")
+        saved = upsert_module_result(db, participant, today, "typing", TYPING)
+        assert saved["typing"]
+        print("modules can start without prerequisite order OK")
 
         saved = upsert_module_result(db, participant, today, "reaction", REACTION)
         assert saved["status"] == "in_progress"
         print("incomplete session status OK")
 
-        try:
-            upsert_module_result(db, participant, today, "memory", MEMORY)
-            raise AssertionError("Expected module skip/order violation")
-        except SessionError as exc:
-            assert exc.error_code == "MODULE_ORDER_VIOLATION"
-        print("required modules cannot be skipped OK")
+        upsert_module_result(db, participant, today, "memory", MEMORY)
+        print("required modules can be completed in any order OK")
 
         complete_session(db, participant, today)
         session = db.execute(

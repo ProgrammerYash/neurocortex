@@ -164,10 +164,10 @@ const Store = (() => {
     },
 
     async loginResearcher({ inviteCode }) {
+      const code = inviteCode?.trim();
+      if (!code) throw new Error('Please enter your access code.');
+
       if (useLocalStore()) {
-        if (inviteCode.trim().toLowerCase() !== 'yash gupta') {
-          throw new Error('Invalid researcher code. Please try again.');
-        }
         const id = genID();
         const profile = {
           id,
@@ -210,6 +210,7 @@ const Store = (() => {
     // ── Sessions ────────────────────────────────────────────────
     async getSessions(id) {
       if(!id) return [];
+      if (isResearcherAuthed()) return [];
       if (useLocalStore()) return _getSessionsLocal(id);
       return fetchAllSessions();
     },
@@ -248,6 +249,7 @@ const Store = (() => {
 
     async ensureGame(id, petChoice = 'fox') {
       if (!id) return null;
+      if (isResearcherAuthed()) return null;
       if (useLocalStore()) {
         let gameData = _getGameLocal(id);
         if (!gameData) {

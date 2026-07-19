@@ -38,24 +38,32 @@ export default function RegisterScreen({onRegister,onBack}) {
   const isMinor = enrollmentCategory === 'under_18';
   const needsCategorySelection = AMBIGUOUS_RANGES.has(ageRange);
 
+  const submitResearcher=async (event)=>{
+    event?.preventDefault?.();
+    if (loading) return;
+    setFormError("");
+    if (!resCode.trim()) {
+      setFormError("Please enter your access code.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const profile = await Store.loginResearcher({ inviteCode: resCode });
+      await onRegister(profile);
+    } catch (error) {
+      const message = error instanceof ApiError
+        ? error.message
+        : error?.message || 'Researcher sign-in failed. Please try again.';
+      setFormError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const submit=async ()=>{
     setFormError("");
     if(role==="researcher"){
-      if(resCode.trim().toLowerCase()!=="yash gupta"){
-        setFormError("Invalid researcher code. Please try again."); return;
-      }
-      setLoading(true);
-      try {
-        const profile = await Store.loginResearcher({ inviteCode: resCode });
-        onRegister(profile);
-      } catch (error) {
-        const message = error instanceof ApiError
-          ? error.message
-          : error?.message || 'Researcher registration failed. Please try again.';
-        setFormError(message);
-      } finally {
-        setLoading(false);
-      }
+      await submitResearcher();
       return;
     }
     if(!grade){setFormError("Please select your grade level."); return;}
@@ -135,24 +143,36 @@ export default function RegisterScreen({onRegister,onBack}) {
             ) : null}
           </>}
           {role==="researcher"&&(
-            <div style={{marginTop:4}}>
+            <form onSubmit={submitResearcher} style={{marginTop:4}}>
               <Label>Researcher Access Code</Label>
               <input type="password" value={resCode}
                 onChange={e=>{setResCode(e.target.value);setFormError("");}}
-                placeholder="Enter access code (case-insensitive)" />
+                placeholder="Enter access code (case-insensitive)"
+                disabled={loading}
+                autoComplete="current-password" />
               <p style={{fontSize:11,color:T.muted,marginTop:6,lineHeight:1.6}}>
                 Code is case-insensitive. Contact the study coordinator.
               </p>
-            </div>
+              {formError&&(
+                <div style={{background:"rgba(252,129,129,0.12)",border:"1px solid rgba(252,129,129,0.35)",borderRadius:8,padding:"9px 13px",color:T.red,fontSize:13,marginTop:10}}>
+                  {formError}
+                </div>
+              )}
+              <Btn type="submit" primary style={{width:"100%",marginTop:20,padding:"13px"}} disabled={loading}>
+                {loading ? 'Signing in...' : 'Sign In as Researcher →'}
+              </Btn>
+            </form>
           )}
-          {formError&&(
+          {role==="participant"&&formError&&(
             <div style={{background:"rgba(252,129,129,0.12)",border:"1px solid rgba(252,129,129,0.35)",borderRadius:8,padding:"9px 13px",color:T.red,fontSize:13,marginTop:10}}>
               {formError}
             </div>
           )}
-          <Btn onClick={()=>role==="participant"?setStep(2):submit()} primary style={{width:"100%",marginTop:20,padding:"13px"}} disabled={loading}>
-            {role==="participant"?"Choose Study Companion →":"Register as Researcher"}
-          </Btn>
+          {role==="participant"&&(
+            <Btn onClick={()=>setStep(2)} primary style={{width:"100%",marginTop:20,padding:"13px"}} disabled={loading}>
+              Choose Study Companion →
+            </Btn>
+          )}
         </Card>
       )}
       {step===2&&(

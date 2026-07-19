@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { T } from './constants/tokens.js';
 import { css } from './constants/styles.js';
 import Store from './store/index.js';
+import { fetchCurrentParticipant, getResearcherProfileFromToken, mapApiParticipantToProfile } from './store/auth.js';
+import { getTokenRole } from './store/research.js';
 import { ACHIEVEMENTS_DEF, BRAIN_REGIONS } from './constants/gamification.js';
 import { dateToday, today, countdownToMidnight } from './utils/dates.js';
 import { calcLevel, evolStage } from './utils/gamification.js';
@@ -29,7 +31,45 @@ export default function App() {
   const [gameData, setGameData] = useState(null);
   const [toast, setToast] = useState(null);
 
-  useEffect(()=>{ setTimeout(()=>setScreen("welcome"), 1800); },[]);
+  useEffect(()=>{
+    setTimeout(()=>setScreen(prev=>prev==="splash"?"welcome":prev), 1800);
+  },[]);
+
+  useEffect(()=>{
+    if (import.meta.env.VITE_USE_LOCAL_STORE === 'true') return;
+    let cancelled = false;
+    (async ()=>{
+      const role = getTokenRole();
+      if (!role || cancelled) return;
+      try {
+        if (role === 'researcher') {
+          const profile = getResearcherProfileFromToken();
+          if (!profile?.id || cancelled) return;
+          setCurrentUser(profile);
+          setSessions([]);
+          setGameData(null);
+          setScreen('researcher');
+          return;
+        }
+        if (role === 'participant') {
+          const me = await fetchCurrentParticipant();
+          const profile = mapApiParticipantToProfile(me, me.public_id);
+          if (cancelled) return;
+          setCurrentUser(profile);
+          const s = await Store.getSessions(profile.id);
+          setSessions(Array.isArray(s) ? s : []);
+          const g = await Store.ensureGame(profile.id, profile.petChoice ?? 'fox');
+          setGameData(g);
+          setScreen('dashboard');
+        }
+      } catch {
+        if (!cancelled) {
+          Store.clearAuth();
+        }
+      }
+    })();
+    return ()=>{ cancelled = true; };
+  },[]);
 
   const showToast = useCallback((msg, type="info")=>{
     setToast({msg,type});
@@ -41,12 +81,28 @@ export default function App() {
   const login = useCallback(async (participant)=>{
     if(!participant?.id) return;
     setCurrentUser(participant);
-    const s=await Store.getSessions(participant.id);
-    setSessions(Array.isArray(s)?s:[]);
-    let g=await Store.ensureGame(participant.id, participant.petChoice??"fox");
-    setGameData(g);
-    setScreen(participant.role==="researcher"?"researcher":"dashboard");
-  },[]);
+    try {
+      if (participant.role === 'researcher') {
+        setSessions([]);
+        setGameData(null);
+        setScreen('researcher');
+        return;
+      }
+      const s=await Store.getSessions(participant.id);
+      setSessions(Array.isArray(s)?s:[]);
+      const g=await Store.ensureGame(participant.id, participant.petChoice??"fox");
+      setGameData(g);
+      setScreen('dashboard');
+    } catch (error) {
+      Store.clearAuth();
+      setCurrentUser(null);
+      setSessions([]);
+      setGameData(null);
+      const message = error?.message || 'Could not load your account. Please try again.';
+      showToast(message, 'error');
+      throw error;
+    }
+  },[showToast]);
 
   const logout = useCallback(()=>{
     Store.clearAuth();
@@ -126,29 +182,37 @@ export default function App() {
     return()=>clearInterval(id);
   },[]);
 
+  const maybeCompleteDay = useCallback(async (updated) => {
+    const rec = Array.isArray(updated) ? updated.find(x => x.date === dateToday()) : null;
+    if (rec?.reaction && rec?.typing && rec?.memory && rec?.attention && rec?.survey) {
+      await completeDay();
+      showToast("🎉 Daily Assessment Complete!", "success");
+      return true;
+    }
+    return false;
+  }, [completeDay, showToast]);
+
   const screens = {
     splash: <Splash />,
     welcome: <Welcome onLogin={()=>setScreen("login")} onRegister={()=>setScreen("register")} />,
     login: <LoginScreen onLogin={login} onBack={()=>setScreen("welcome")} />,
     register: <RegisterScreen onRegister={login} onBack={()=>setScreen("welcome")} />,
     dashboard: <Dashboard user={currentUser} sessions={sessions} todaySessions={todaySessions} todayComplete={todayComplete} gameData={gameData} countdown={countdown} onNavigate={setScreen} onLogout={logout} showToast={showToast} />,
-    reaction: <ReactionTest locked={todayComplete&&!!todaySessions.reaction} onComplete={async d=>{await saveSession("reaction",d);setScreen("dashboard");showToast("⚡ Reaction Test complete! +10 XP","success");}} onBack={()=>setScreen("dashboard")} />,
-    typing: <TypingTest locked={todayComplete&&!!todaySessions.typing} onComplete={async d=>{await saveSession("typing",d);setScreen("dashboard");showToast("⌨️ Typing analysis saved!","success");}} onBack={()=>setScreen("dashboard")} />,
-    memory: <MemoryTest locked={todayComplete&&!!todaySessions.memory} onComplete={async d=>{await saveSession("memory",d);setScreen("dashboard");showToast("🧩 Memory data recorded!","success");}} onBack={()=>setScreen("dashboard")} />,
-    attention: <AttentionTest locked={todayComplete&&!!todaySessions.attention} onComplete={async d=>{await saveSession("attention",d);setScreen("dashboard");showToast("🎯 Attention test saved!","success");}} onBack={()=>setScreen("dashboard")} />,
-    survey: <DailySurvey locked={todayComplete&&!!todaySessions.survey} onComplete={async d=>{
+    reaction: <ReactionTest locked={!!todaySessions.reaction} onComplete={async d=>{const updated=await saveSession("reaction",d);await maybeCompleteDay(updated);setScreen("dashboard");showToast("⚡ Reaction Test complete! +10 XP","success");}} onBack={()=>setScreen("dashboard")} />,
+    typing: <TypingTest locked={!!todaySessions.typing} onComplete={async d=>{const updated=await saveSession("typing",d);await maybeCompleteDay(updated);setScreen("dashboard");showToast("⌨️ Typing analysis saved!","success");}} onBack={()=>setScreen("dashboard")} />,
+    memory: <MemoryTest locked={!!todaySessions.memory} onComplete={async d=>{const updated=await saveSession("memory",d);await maybeCompleteDay(updated);setScreen("dashboard");showToast("🧩 Memory data recorded!","success");}} onBack={()=>setScreen("dashboard")} />,
+    attention: <AttentionTest locked={!!todaySessions.attention} onComplete={async d=>{const updated=await saveSession("attention",d);await maybeCompleteDay(updated);setScreen("dashboard");showToast("🎯 Attention test saved!","success");}} onBack={()=>setScreen("dashboard")} />,
+    survey: <DailySurvey locked={!!todaySessions.survey} onComplete={async d=>{
       const updated=await saveSession("survey",d);
-      const rec=Array.isArray(updated)?updated.find(x=>x.date===dateToday()):null;
-      if(rec?.reaction&&rec?.typing&&rec?.memory&&rec?.attention&&rec?.survey){
-        await completeDay(); showToast("🎉 Day complete! Your companion is happy!","success");
-      } else { showToast("📋 Survey saved!","success"); }
+      const finished = await maybeCompleteDay(updated);
+      if (!finished) showToast("📋 Survey saved!","success");
       setScreen("dashboard");
     }} onBack={()=>setScreen("dashboard")} />,
     nasatlx: <NasaTLX onComplete={async d=>{await saveSession("nasaTLX",d);setScreen("dashboard");showToast("📊 NASA-TLX saved! +25 coins","success");await updateGame(g=>({...g,coins:g.coins+25}));}} onBack={()=>setScreen("dashboard")} />,
     pet: <PetScreen gameData={gameData} updateGame={updateGame} onBack={()=>setScreen("dashboard")} showToast={showToast} />,
     achievements: <AchievementsScreen gameData={gameData} onBack={()=>setScreen("dashboard")} />,
     neuroverse: <NeuroVerse gameData={gameData} sessions={sessions} onBack={()=>setScreen("dashboard")} />,
-    researcher: <ResearcherDashboard onBack={()=>{setCurrentUser(null);setScreen("welcome");}} />,
+    researcher: <ResearcherDashboard onBack={logout} />,
   };
 
   return (

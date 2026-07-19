@@ -9,10 +9,8 @@ from app.models.participant import Participant
 from app.services.data_quality_service import record_module_resubmission_flag, validate_session_data_quality
 from app.services.procedure_service import (
     ProcedureError,
-    assert_module_order,
     get_or_create_working_session,
     mark_session_abandoned,
-    procedure_block_message,
     recompute_session_completion,
     resolve_active_procedure,
 )
@@ -126,7 +124,6 @@ def upsert_module_result(
             session_date=session_date,
             procedure=procedure,
         )
-        assert_module_order(session, module_key=module_key, procedure=procedure)
     except ProcedureError as exc:
         raise SessionError(
             exc.message,
