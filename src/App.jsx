@@ -23,6 +23,7 @@ import AchievementsScreen from './components/gamification/AchievementsScreen.jsx
 import NeuroVerse from './components/gamification/NeuroVerse.jsx';
 import ResearcherDashboard from './components/research/ResearcherDashboard.jsx';
 import Toast from './components/ui/Toast.jsx';
+import ConsentCompletionScreen from './components/consent/ConsentCompletionScreen.jsx';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -56,6 +57,12 @@ export default function App() {
           const profile = mapApiParticipantToProfile(me, me.public_id);
           if (cancelled) return;
           setCurrentUser(profile);
+          if (me.consent_required === true || me.consent_recorded === false) {
+            setSessions([]);
+            setGameData(null);
+            setScreen('consent');
+            return;
+          }
           const s = await Store.getSessions(profile.id);
           setSessions(Array.isArray(s) ? s : []);
           const g = await Store.ensureGame(profile.id, profile.petChoice ?? 'fox');
@@ -88,6 +95,12 @@ export default function App() {
         setScreen('researcher');
         return;
       }
+      if (participant.consentRequired === true || participant.consentRecorded === false) {
+        setSessions([]);
+        setGameData(null);
+        setScreen('consent');
+        return;
+      }
       const s=await Store.getSessions(participant.id);
       setSessions(Array.isArray(s)?s:[]);
       const g=await Store.ensureGame(participant.id, participant.petChoice??"fox");
@@ -103,6 +116,19 @@ export default function App() {
       throw error;
     }
   },[showToast]);
+
+  const completeExistingConsent = useCallback(async ()=>{
+    const me = await fetchCurrentParticipant();
+    if (me.consent_required === true || me.consent_recorded === false) {
+      throw new Error('The server has not confirmed consent yet.');
+    }
+    const profile = mapApiParticipantToProfile(me, me.public_id);
+    setCurrentUser(profile);
+    const s = await Store.getSessions(profile.id);
+    setSessions(Array.isArray(s)?s:[]);
+    setGameData(await Store.ensureGame(profile.id, profile.petChoice??'fox'));
+    setScreen('dashboard');
+  },[]);
 
   const logout = useCallback(()=>{
     Store.clearAuth();
@@ -196,7 +222,8 @@ export default function App() {
     splash: <Splash />,
     welcome: <Welcome onLogin={()=>setScreen("login")} onRegister={()=>setScreen("register")} />,
     login: <LoginScreen onLogin={login} onBack={()=>setScreen("welcome")} />,
-    register: <RegisterScreen onRegister={login} onBack={()=>setScreen("welcome")} />,
+    register: <RegisterScreen onRegister={login} onBack={()=>setScreen("welcome")} showToast={showToast} />,
+    consent: <ConsentCompletionScreen onComplete={completeExistingConsent} onLogout={logout} showToast={showToast} />,
     dashboard: <Dashboard user={currentUser} sessions={sessions} todaySessions={todaySessions} todayComplete={todayComplete} gameData={gameData} countdown={countdown} onNavigate={setScreen} onLogout={logout} showToast={showToast} />,
     reaction: <ReactionTest locked={!!todaySessions.reaction} onComplete={async d=>{const updated=await saveSession("reaction",d);await maybeCompleteDay(updated);setScreen("dashboard");showToast("⚡ Reaction Test complete! +10 XP","success");}} onBack={()=>setScreen("dashboard")} />,
     typing: <TypingTest locked={!!todaySessions.typing} onComplete={async d=>{const updated=await saveSession("typing",d);await maybeCompleteDay(updated);setScreen("dashboard");showToast("⌨️ Typing analysis saved!","success");}} onBack={()=>setScreen("dashboard")} />,

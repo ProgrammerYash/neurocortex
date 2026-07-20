@@ -9,12 +9,6 @@ import {
   withdrawParticipation,
 } from '../../store/consent.js';
 
-function statusColor(value) {
-  if (value === 'granted' || value === 'active') return T.teal;
-  if (value === 'withdrawn' || value === 'declined') return T.red;
-  return T.muted;
-}
-
 export default function ConsentStatusTab({ showToast }) {
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -71,19 +65,6 @@ export default function ConsentStatusTab({ showToast }) {
     return <Card><p style={{ color: T.muted, textAlign: 'center', padding: '2rem', fontSize: 14 }}>Enrollment status unavailable.</p></Card>;
   }
 
-  const rows = [
-    status.age_category === 'minor' && { label: 'Participant assent', value: status.assent_status },
-    status.age_category === 'minor' && {
-      label: 'Parental permission',
-      value: status.parental_permission_status === 'pending' ? 'not yet verified' : status.parental_permission_status,
-    },
-    status.age_category === 'adult' && { label: 'Adult informed consent', value: status.adult_consent_status },
-    { label: 'Age consent category', value: status.age_consent_category },
-    { label: 'Protocol version', value: status.protocol_version },
-    { label: 'Session eligible', value: status.session_eligible ? 'yes' : 'no' },
-    { label: 'Withdrawal status', value: status.withdrawal_status },
-  ].filter(Boolean);
-
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <Card>
@@ -91,13 +72,11 @@ export default function ConsentStatusTab({ showToast }) {
         <p style={{ fontSize: 13, color: T.muted, marginBottom: 16, lineHeight: 1.5 }}>
           This page shows your voluntary research enrollment status. It is not a medical or diagnostic record.
         </p>
-        <div style={{ display: 'grid', gap: 10 }}>
-          {rows.map(row => (
-            <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13 }}>
-              <span style={{ color: T.muted }}>{row.label}</span>
-              <span style={{ color: statusColor(row.value), fontWeight: 600, textTransform: 'capitalize' }}>{row.value}</span>
-            </div>
-          ))}
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13 }}>
+          <span style={{ color: T.muted }}>Electronic consent</span>
+          <span style={{ color: T.teal, fontWeight: 600 }}>
+            {status.consent_recorded === false ? 'Unavailable' : 'Recorded'}
+          </span>
         </div>
         {!status.session_eligible && status.session_block_message && (
           <div style={{ marginTop: 16, padding: 12, borderRadius: 8, background: `${T.red}15`, color: T.red, fontSize: 12 }}>

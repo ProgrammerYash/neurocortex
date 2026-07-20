@@ -293,6 +293,8 @@ def consent_eligible_at_session_time(
 
 
 def build_consent_status(db: Session, participant: Participant) -> dict[str, Any]:
+    from app.services.electronic_consent_service import has_current_consent
+
     protocol = resolve_active_protocol(db)
     events = _load_consent_events(db, participant_id=participant.id, protocol_id=protocol.id)
     age_category = get_age_category(participant)
@@ -305,10 +307,12 @@ def build_consent_status(db: Session, participant: Participant) -> dict[str, Any
     ml_excluded = _latest_event(events, ML_EVENT_TYPES)
     ml_excluded_flag = ml_excluded is not None and ml_excluded.event_type == "excluded_from_ml"
     deletion_requested = _latest_event(events, DELETION_EVENT_TYPES) is not None
+    consent_recorded = has_current_consent(db, participant.id)
 
     protocol_block = configured_protocol_session_block(db)
     session_eligible, session_block_reason = _session_eligibility_details(
         protocol_block=protocol_block,
+        consent_recorded=consent_recorded,
         age_category=age_category,
         consent_category=consent_category,
         assent_status=assent_status,
@@ -347,12 +351,15 @@ def build_consent_status(db: Session, participant: Participant) -> dict[str, Any
         "ml_eligible": ml_eligible,
         "ml_block_reason": ml_block_reason,
         "require_consent_for_sessions": require_consent_for_sessions(),
+        "consent_required": not consent_recorded,
+        "consent_recorded": consent_recorded,
     }
 
 
 def _session_eligibility_details(
     *,
     protocol_block: str | None,
+    consent_recorded: bool,
     age_category: str,
     consent_category: str,
     assent_status: str,
@@ -362,6 +369,8 @@ def _session_eligibility_details(
 ) -> tuple[bool, str | None]:
     if withdrawal_status == "withdrawn":
         return False, "PARTICIPANT_WITHDRAWN"
+    if not consent_recorded:
+        return False, "CONSENT_REQUIRED"
     if not require_consent_for_sessions():
         return True, None
     if protocol_block:

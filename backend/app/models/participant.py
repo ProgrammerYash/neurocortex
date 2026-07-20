@@ -10,6 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
+    from app.models.consent_record import ConsentRecord
     from app.models.daily_session import DailySession
     from app.models.participant_game_data import ParticipantGameData
 
@@ -42,4 +43,8 @@ class Participant(Base):
         back_populates="participant",
         cascade="all, delete-orphan",
         uselist=False,
+    )
+    consent_records: Mapped[list["ConsentRecord"]] = relationship(
+        back_populates="participant",
+        passive_deletes=True,
     )

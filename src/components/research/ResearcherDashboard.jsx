@@ -28,6 +28,7 @@ import MLTab from './MLTab.jsx';
 import HumanParticipantsTab from './HumanParticipantsTab.jsx';
 import DataQualityTab from './DataQualityTab.jsx';
 import ExportTab from './ExportTab.jsx';
+import ConsentFormsTab from './ConsentFormsTab.jsx';
 
 export default function ResearcherDashboard({onBack}) {
   const [allSessions,    setAllSessions]    = useState([]);
@@ -434,7 +435,7 @@ export default function ResearcherDashboard({onBack}) {
 
       {/* Tabs */}
       <div style={{display:"flex",gap:4,background:T.surface,padding:4,borderRadius:10,marginBottom:18}}>
-        {[["overview","📊 Overview"],["participants","👥 Participants"],["quality","🧪 Data Quality"],["ml","🤖 ML / SHAP"],["human","📄 Human Participants"],["export","⬇ Export"]].map(([k,l])=>(
+        {[["overview","📊 Overview"],["participants","👥 Participants"],["quality","🧪 Data Quality"],["ml","🤖 ML / SHAP"],["human","📄 Human Participants"],["consents","✍ Consent Forms"],["export","⬇ Export"]].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)}
             style={{flex:1,padding:"9px",border:"none",borderRadius:7,fontWeight:500,fontSize:13,cursor:"pointer",
                     background:tab===k?T.card:T.surface,color:tab===k?T.teal:T.muted,transition:"all .2s"}}>
@@ -448,6 +449,7 @@ export default function ResearcherDashboard({onBack}) {
       {tab==="quality"      && <DataQualityTab />}
       {tab==="ml"           && <MLTab trainedModels={trainedModels} trainingModel={trainingModel} onTrainModel={handleTrainModel} latestDatasetId={latestDatasetId} predictions={predictions} batchPredicting={batchPredicting} onBatchPredict={handleBatchPredict} latestModelId={latestModelId} featureImportance={featureImportance} modelComparison={modelComparison} selectedPrediction={selectedPrediction} selectedExplanation={selectedExplanation} explaining={explaining} onExplainPrediction={handleExplainPrediction} />}
       {tab==="human"        && <HumanParticipantsTab />}
+      {tab==="consents"     && <ConsentFormsTab />}
       {tab==="export"       && <ExportTab
           onCSV={exportCSV} onJSON={exportJSON} onXLSX={exportXLSX}
           onParticipantsCSV={exportParticipantsCSV}

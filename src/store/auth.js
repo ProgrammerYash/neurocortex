@@ -63,24 +63,34 @@ export function mapApiParticipantToProfile(participant, publicId) {
     grade: participant?.grade ?? null,
     ageRange: participant?.age_range ?? null,
     petChoice: participant?.pet_choice ?? 'fox',
+    consentRequired: participant?.consent_required == null ? undefined : participant.consent_required === true,
+    consentRecorded: participant?.consent_recorded == null ? undefined : participant.consent_recorded === true,
     joinedAt,
     joinedDate,
   };
 }
 
-export async function registerWithApi({ grade, ageRange, ageConsentCategory, petChoice, pin, assentAcknowledged, parentalPermissionStatus, adultConsentAcknowledged }) {
+export async function registerWithApi(body) {
   const data = await apiRequest('/v1/auth/participant/register', {
     method: 'POST',
     auth: false,
     body: {
-      grade,
-      age_range: ageRange,
-      age_consent_category: ageConsentCategory ?? undefined,
-      pet_choice: petChoice,
-      pin,
-      assent_acknowledged: assentAcknowledged ?? undefined,
-      parental_permission_status: parentalPermissionStatus ?? undefined,
-      adult_consent_acknowledged: adultConsentAcknowledged ?? undefined,
+      grade: body.grade,
+      age_range: body.ageRange,
+      age_consent_category: body.ageConsentCategory,
+      pet_choice: body.petChoice,
+      pin: body.pin,
+      pin_confirmation: body.pinConfirmation,
+      participant_printed_name: body.participantPrintedName,
+      guardian_printed_name: body.guardianPrintedName,
+      participant_acknowledged: body.participantAcknowledged,
+      guardian_acknowledged: body.guardianAcknowledged,
+      participant_signature_png: body.participantSignaturePng,
+      guardian_signature_png: body.guardianSignaturePng,
+      consent_version: body.consentVersion,
+      survey_version: body.surveyVersion,
+      template_sha256: body.templateSha256,
+      idempotency_key: body.idempotencyKey,
     },
   });
   setToken(data.access_token);

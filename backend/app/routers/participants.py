@@ -15,9 +15,12 @@ from app.services.consent_service import (
     ConsentError,
     build_consent_status,
     record_deletion_request,
-    record_participant_consent,
     record_withdrawal,
     session_block_message,
+)
+from app.services.electronic_consent_service import (
+    complete_existing_participant_consent,
+    has_current_consent,
 )
 from app.services.procedure_service import build_participant_study_progress
 from app.services.session_service import (
@@ -57,7 +60,11 @@ def submit_my_consent(
     db: Session = Depends(get_db),
 ) -> ConsentStatusResponse:
     try:
-        return record_participant_consent(db, participant=participant, payload=payload.model_dump())
+        return complete_existing_participant_consent(
+            db,
+            participant=participant,
+            payload=payload.model_dump(),
+        )
     except ConsentError as exc:
         raise _consent_http_error(exc) from exc
 
@@ -85,8 +92,14 @@ def request_my_data_deletion(
 
 
 @router.get("/me", response_model=ParticipantMeResponse)
-def get_me(participant: Participant = Depends(get_current_participant)) -> ParticipantMeResponse:
-    return ParticipantMeResponse.from_participant(participant)
+def get_me(
+    participant: Participant = Depends(get_current_participant),
+    db: Session = Depends(get_db),
+) -> ParticipantMeResponse:
+    return ParticipantMeResponse.from_participant(
+        participant,
+        consent_recorded=has_current_consent(db, participant.id),
+    )
 
 
 @router.get("/me/sessions", response_model=list[DailySessionRecord])

@@ -63,3 +63,34 @@ export async function apiRequest(path, { method = 'GET', body, auth = true } = {
 
   return data;
 }
+
+export function safeFilename(contentDisposition, fallback = 'download') {
+  const utf = contentDisposition?.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  const plain = contentDisposition?.match(/filename="?([^";]+)"?/i)?.[1];
+  let value = fallback;
+  try { value = decodeURIComponent(utf || plain || fallback); } catch { value = plain || fallback; }
+  return value.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').replace(/^\.+/, '') || fallback;
+}
+
+export async function apiBlobRequest(path, { method = 'GET', auth = true } = {}) {
+  const headers = {};
+  if (auth) {
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+  }
+  let response;
+  try {
+    response = await fetch(`${BASE_URL}${path}`, { method, headers });
+  } catch (error) {
+    throw new ApiError('Unable to reach the NeuroCortex server. Check that the backend is running.', 0, error.message);
+  }
+  if (!response.ok) {
+    let detail;
+    try { detail = await response.json(); } catch { detail = response.statusText; }
+    throw new ApiError(typeof detail?.detail === 'string' ? detail.detail : response.statusText || 'Download failed', response.status, detail);
+  }
+  return {
+    blob: await response.blob(),
+    filename: safeFilename(response.headers.get('content-disposition'), 'download'),
+  };
+}

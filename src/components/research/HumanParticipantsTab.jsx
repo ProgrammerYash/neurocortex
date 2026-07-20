@@ -13,8 +13,6 @@ import {
   excludeParticipantFromMl,
   fetchEnrollmentStatus,
   includeParticipantInMl,
-  recordResearcherConsentEvent,
-  resolveAgeConsentCategory,
 } from '../../store/consent.js';
 import Card from '../ui/Card.jsx';
 import Btn from '../ui/Btn.jsx';
@@ -162,32 +160,6 @@ export default function HumanParticipantsTab() {
     }
   };
 
-  const verifyParentalPermission = async (row) => {
-    setMessage('');
-    try {
-      await recordResearcherConsentEvent(row.participant_id, {
-        event_type: 'parental_permission_granted',
-        status: 'granted',
-        form_type: 'parental_permission',
-      });
-      setMessage(`Parental permission recorded for ${row.participant_id}.`);
-      await load();
-    } catch (e) {
-      setMessage(e.message || 'Researcher override failed');
-    }
-  };
-
-  const resolveAgeCategory = async (row, category) => {
-    setMessage('');
-    try {
-      await resolveAgeConsentCategory(row.participant_id, category);
-      setMessage(`Age consent category resolved for ${row.participant_id}.`);
-      await load();
-    } catch (e) {
-      setMessage(e.message || 'Age category resolution failed');
-    }
-  };
-
   const toggleMl = async (row, excluded) => {
     try {
       if (excluded) await includeParticipantInMl(row.participant_id);
@@ -210,7 +182,7 @@ export default function HumanParticipantsTab() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
               <tr style={{ color: T.muted, textAlign: 'left' }}>
-                {['Public ID', 'Age Range', 'Category', 'Assent', 'Parental', 'Adult Consent', 'Protocol', 'Session', 'ML', 'Withdrawal', 'Actions'].map(h => (
+                {['Public ID', 'Consent', 'Session', 'ML', 'Withdrawal', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '8px 6px' }}>{h}</th>
                 ))}
               </tr>
@@ -219,31 +191,11 @@ export default function HumanParticipantsTab() {
               {enrollment.map(row => (
                 <tr key={row.participant_id} style={{ borderTop: `1px solid ${T.faint}` }}>
                   <td style={{ padding: '8px 6px', fontFamily: T.mono }}>{row.participant_id}</td>
-                  <td style={{ padding: '8px 6px' }}>{row.age_range}</td>
-                  <td style={{ padding: '8px 6px', color: statusColor(row.age_consent_category) }}>{row.age_consent_category}</td>
-                  <td style={{ padding: '8px 6px', color: statusColor(row.assent_status) }}>{row.assent_status}</td>
-                  <td style={{ padding: '8px 6px', color: statusColor(row.parental_permission_status) }}>{row.parental_permission_status}</td>
-                  <td style={{ padding: '8px 6px', color: statusColor(row.adult_consent_status) }}>{row.adult_consent_status}</td>
-                  <td style={{ padding: '8px 6px' }}>{row.protocol_version}</td>
+                  <td style={{ padding: '8px 6px', color: row.consent_recorded ? T.green : T.orange }}>{row.consent_recorded ? 'recorded' : 'required'}</td>
                   <td style={{ padding: '8px 6px', color: row.session_eligible ? T.green : T.red }}>{row.session_eligible ? 'yes' : 'no'}</td>
                   <td style={{ padding: '8px 6px', color: row.ml_eligible ? T.green : T.red }}>{row.ml_eligible ? 'yes' : 'no'}</td>
                   <td style={{ padding: '8px 6px', color: statusColor(row.withdrawal_status) }}>{row.withdrawal_status}</td>
                   <td style={{ padding: '8px 6px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {row.age_consent_category === 'unresolved' ? (
-                      <>
-                        <button onClick={() => resolveAgeCategory(row, 'under_18')} style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, border: `1px solid ${T.faint}`, background: T.surface, cursor: 'pointer' }}>
-                          Resolve under 18
-                        </button>
-                        <button onClick={() => resolveAgeCategory(row, 'age_18_or_over')} style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, border: `1px solid ${T.faint}`, background: T.surface, cursor: 'pointer' }}>
-                          Resolve 18+
-                        </button>
-                      </>
-                    ) : null}
-                    {row.age_category === 'minor' && row.parental_permission_status !== 'granted' ? (
-                      <button onClick={() => verifyParentalPermission(row)} style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, border: `1px solid ${T.faint}`, background: T.surface, cursor: 'pointer' }}>
-                        Verify parental permission
-                      </button>
-                    ) : null}
                     <button onClick={() => toggleMl(row, row.excluded_from_ml)} style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, border: `1px solid ${T.faint}`, background: T.surface, cursor: 'pointer' }}>
                       {row.excluded_from_ml ? 'Include ML' : 'Exclude ML'}
                     </button>

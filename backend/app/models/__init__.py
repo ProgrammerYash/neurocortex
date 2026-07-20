@@ -1,5 +1,6 @@
 from app.models.audit_event import AuditEvent
 from app.models.consent_form_version import ConsentFormVersion
+from app.models.consent_record import ConsentRecord
 from app.models.daily_session import DailySession
 from app.models.form4_record import Form4Record
 from app.models.generated_study_document import GeneratedStudyDocument
@@ -36,6 +37,7 @@ __all__ = [
     "StudyProcedureVersion",
     "SessionDataQualityFlag",
     "ConsentFormVersion",
+    "ConsentRecord",
     "ParticipantConsentEvent",
     "GeneratedStudyDocument",
     "Form4Record",

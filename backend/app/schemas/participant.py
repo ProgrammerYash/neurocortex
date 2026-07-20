@@ -11,13 +11,22 @@ class ParticipantMeResponse(BaseModel):
     age_range: str
     pet_choice: str
     joined_at: datetime
+    consent_required: bool
+    consent_recorded: bool
 
     @classmethod
-    def from_participant(cls, participant: Participant) -> "ParticipantMeResponse":
+    def from_participant(
+        cls,
+        participant: Participant,
+        *,
+        consent_recorded: bool,
+    ) -> "ParticipantMeResponse":
         return cls(
             public_id=participant.public_id,
             grade=participant.grade,
             age_range=participant.age_range,
             pet_choice=participant.pet_choice,
             joined_at=participant.created_at,
+            consent_required=not consent_recorded,
+            consent_recorded=consent_recorded,
         )

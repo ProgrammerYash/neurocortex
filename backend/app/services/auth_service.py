@@ -1,6 +1,8 @@
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.models.consent_record import ConsentRecord
 from app.models.participant import Participant
 from app.schemas.auth import (
     ParticipantLoginRequest,
@@ -21,7 +23,18 @@ class AuthError(Exception):
 
 
 def register_participant(db: Session, payload: ParticipantRegisterRequest) -> RegisterResponse:
-    from app.services.consent_service import record_participant_consent, validate_registration_consent_category
+    from app.services.consent_service import validate_registration_consent_category
+    from app.services.electronic_consent_service import create_consent_record_uncommitted
+
+    idempotency_key = str(payload.idempotency_key)
+    replay = db.execute(
+        select(ConsentRecord).where(ConsentRecord.idempotency_key == idempotency_key)
+    ).scalar_one_or_none()
+    if replay is not None:
+        participant = db.get(Participant, replay.participant_id)
+        if participant is None or not verify_pin(payload.pin, participant.pin_hash):
+            raise AuthError("Idempotency key has already been used", status_code=409)
+        return _register_response(participant)
 
     consent_category = validate_registration_consent_category(payload.age_range, payload.age_consent_category)
     public_id = _unique_public_id(db)
@@ -33,29 +46,48 @@ def register_participant(db: Session, payload: ParticipantRegisterRequest) -> Re
         age_consent_category=consent_category,
         pet_choice=payload.pet_choice,
     )
-    db.add(participant)
-    db.commit()
-    db.refresh(participant)
+    try:
+        db.add(participant)
+        db.flush()
+        create_consent_record_uncommitted(
+            db,
+            participant=participant,
+            payload=payload.model_dump(),
+        )
+        db.commit()
+        db.refresh(participant)
+    except IntegrityError as exc:
+        db.rollback()
+        replay = db.execute(
+            select(ConsentRecord).where(ConsentRecord.idempotency_key == idempotency_key)
+        ).scalar_one_or_none()
+        if replay is not None:
+            existing_participant = db.get(Participant, replay.participant_id)
+            if existing_participant is not None and verify_pin(
+                payload.pin,
+                existing_participant.pin_hash,
+            ):
+                return _register_response(existing_participant)
+        raise AuthError("Registration conflicts with an existing record", status_code=409) from exc
+    except Exception:
+        db.rollback()
+        raise
 
-    consent_payload = {
-        key: value
-        for key, value in {
-            "assent_acknowledged": payload.assent_acknowledged,
-            "parental_permission_status": payload.parental_permission_status,
-            "adult_consent_acknowledged": payload.adult_consent_acknowledged,
-        }.items()
-        if value is not None
-    }
-    if consent_payload:
-        from app.services.consent_service import record_participant_consent
+    return _register_response(participant)
 
-        record_participant_consent(db, participant=participant, payload=consent_payload)
 
+def _register_response(participant: Participant) -> RegisterResponse:
     token = create_access_token(participant_id=participant.id, public_id=participant.public_id)
     return RegisterResponse(
         access_token=token,
         public_id=participant.public_id,
-        participant=ParticipantProfile.model_validate(participant),
+        participant=ParticipantProfile(
+            public_id=participant.public_id,
+            grade=participant.grade,
+            age_range=participant.age_range,
+            age_consent_category=participant.age_consent_category,
+            pet_choice=participant.pet_choice,
+        ),
     )
 
 

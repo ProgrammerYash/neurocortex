@@ -114,33 +114,12 @@ const Store = (() => {
       clearToken();
     },
 
-    async registerParticipant({ grade, ageRange, ageConsentCategory, petChoice, pin, assentAcknowledged, parentalPermissionStatus, adultConsentAcknowledged }) {
+    async registerParticipant(body) {
       if (useLocalStore()) {
-        const id = genID();
-        const profile = {
-          id,
-          role: 'participant',
-          grade,
-          ageRange,
-          ageConsentCategory,
-          petChoice,
-          joinedAt: Date.now(),
-          joinedDate: dateToday(),
-        };
-        cacheParticipant(profile);
-        return profile;
+        throw new Error('Electronic consent requires the study server. Local enrollment is unavailable.');
       }
 
-      const data = await registerWithApi({
-        grade,
-        ageRange,
-        ageConsentCategory,
-        petChoice,
-        pin,
-        assentAcknowledged,
-        parentalPermissionStatus,
-        adultConsentAcknowledged,
-      });
+      const data = await registerWithApi(body);
       const profile = mapApiParticipantToProfile(data.participant, data.public_id);
       cacheParticipant(profile);
       return profile;
@@ -151,9 +130,7 @@ const Store = (() => {
       if (!pid) throw new Error('Please enter your Participant ID.');
 
       if (useLocalStore()) {
-        const profile = read(`nc3_p_${pid}`, null);
-        if (!profile) throw new Error(`ID "${pid}" not found. Check your ID or register first.`);
-        return profile;
+        throw new Error('Participant sign-in requires the study server so consent status can be verified.');
       }
 
       await loginWithApi({ publicId: pid, pin });

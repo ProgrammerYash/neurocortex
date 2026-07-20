@@ -1,4 +1,6 @@
-from pydantic import BaseModel, Field, field_validator
+from uuid import UUID
+
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 VALID_PET_CHOICES = frozenset({"fox", "owl", "cat", "dragon"})
 VALID_AGE_CONSENT_CATEGORIES = frozenset({"under_18", "age_18_or_over"})
@@ -10,11 +12,25 @@ class ParticipantRegisterRequest(BaseModel):
     age_consent_category: str | None = Field(default=None, pattern="^(under_18|age_18_or_over)$")
     pet_choice: str = Field(..., min_length=1, max_length=32)
     pin: str = Field(..., min_length=4, max_length=6)
-    assent_acknowledged: bool | None = None
-    parental_permission_status: str | None = Field(default=None, pattern="^(declined|pending)$")
-    adult_consent_acknowledged: bool | None = None
+    pin_confirmation: str = Field(..., min_length=4, max_length=6)
+    participant_printed_name: str = Field(..., min_length=2, max_length=200)
+    guardian_printed_name: str = Field(..., min_length=2, max_length=200)
+    participant_acknowledged: bool
+    guardian_acknowledged: bool
+    participant_signature_png: str = Field(..., min_length=32, max_length=1_400_100)
+    guardian_signature_png: str = Field(..., min_length=32, max_length=1_400_100)
+    consent_version: str = Field(..., min_length=1, max_length=64)
+    survey_version: str = Field(..., min_length=1, max_length=64)
+    template_sha256: str = Field(..., pattern="^[0-9a-f]{64}$")
+    idempotency_key: UUID
 
-    @field_validator("grade", "age_range", "pet_choice")
+    @field_validator(
+        "grade",
+        "age_range",
+        "pet_choice",
+        "participant_printed_name",
+        "guardian_printed_name",
+    )
     @classmethod
     def strip_required(cls, value: str) -> str:
         cleaned = value.strip()
@@ -30,12 +46,22 @@ class ParticipantRegisterRequest(BaseModel):
             raise ValueError(f"pet_choice must be one of: {', '.join(sorted(VALID_PET_CHOICES))}")
         return normalized
 
-    @field_validator("pin")
+    @field_validator("pin", "pin_confirmation")
     @classmethod
     def validate_pin(cls, value: str) -> str:
         if not value.isdigit():
             raise ValueError("pin must contain only digits")
         return value
+
+    @model_validator(mode="after")
+    def validate_consent_submission(self) -> "ParticipantRegisterRequest":
+        if self.pin != self.pin_confirmation:
+            raise ValueError("PIN confirmation does not match")
+        if not self.participant_acknowledged:
+            raise ValueError("student acknowledgment is required")
+        if not self.guardian_acknowledged:
+            raise ValueError("guardian acknowledgment is required")
+        return self
 
 
 class ParticipantLoginRequest(BaseModel):

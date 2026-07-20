@@ -1,11 +1,52 @@
-import { apiRequest } from './apiClient.js';
+import { apiBlobRequest, apiRequest } from './apiClient.js';
+
+export async function fetchCurrentConsent() {
+  return apiRequest('/v1/consent/current', { auth: false });
+}
 
 export async function fetchMyConsentStatus() {
   return apiRequest('/v1/participants/me/consent-status');
 }
 
 export async function submitMyConsent(body) {
-  return apiRequest('/v1/participants/me/consent', { method: 'POST', body });
+  return apiRequest('/v1/participants/me/consent', { method: 'POST', body: toConsentApiBody(body) });
+}
+
+export function toConsentApiBody(body) {
+  return {
+    participant_printed_name: body.participantPrintedName,
+    guardian_printed_name: body.guardianPrintedName,
+    participant_acknowledged: body.participantAcknowledged,
+    guardian_acknowledged: body.guardianAcknowledged,
+    participant_signature_png: body.participantSignaturePng,
+    guardian_signature_png: body.guardianSignaturePng,
+    consent_version: body.consentVersion,
+    survey_version: body.surveyVersion,
+    template_sha256: body.templateSha256,
+    idempotency_key: body.idempotencyKey,
+  };
+}
+
+export function fetchResearcherConsents({ limit = 20, offset = 0, search = '', sort = 'participant_signed_at', direction = 'desc' } = {}) {
+  const query = new URLSearchParams({
+    limit:String(limit),
+    offset:String(offset),
+    search,
+    sort_order:direction,
+  });
+  return apiRequest(`/v1/researcher/consents?${query}`);
+}
+
+export function fetchConsentPdf(id) {
+  return apiBlobRequest(`/v1/researcher/consents/${encodeURIComponent(id)}/pdf`);
+}
+
+export function downloadConsent(id) {
+  return apiBlobRequest(`/v1/researcher/consents/${encodeURIComponent(id)}/download`);
+}
+
+export function downloadAllConsents() {
+  return apiBlobRequest('/v1/researcher/consents/download-all');
 }
 
 export async function withdrawParticipation() {
