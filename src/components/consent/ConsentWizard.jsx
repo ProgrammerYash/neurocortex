@@ -13,8 +13,7 @@ const GRADES = ['9th Grade','10th Grade','11th Grade','12th Grade','College Fres
 const AGES = ['13-14','15-16','17-18','19-20','21-22','23+'];
 
 export default function ConsentWizard({ registration = false, onSubmit, submitting = false, error = '' }) {
-  const firstStep = registration ? 1 : 2;
-  const [step, setStep] = useState(firstStep);
+  const [step, setStep] = useState(1);
   const [consent, setConsent] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [account, setAccount] = useState({grade:'', ageRange:'', ageConsentCategory:'', petChoice:'fox', pin:'', pinConfirmation:'', participantPrintedName:'', guardianPrintedName:''});
@@ -42,8 +41,10 @@ export default function ConsentWizard({ registration = false, onSubmit, submitti
     if (!submitting) submitRef.current = false;
   }, [submitting]);
 
+  const namesValid = () => Boolean(account.participantPrintedName.trim() && account.guardianPrintedName.trim());
+
   const accountValid = () => {
-    if (!account.grade || !account.ageRange || !account.participantPrintedName.trim() || !account.guardianPrintedName.trim()) return false;
+    if (!account.grade || !account.ageRange || !namesValid()) return false;
     if (needsCategory && !account.ageConsentCategory) return false;
     return /^\d{4,6}$/.test(account.pin) && account.pin === account.pinConfirmation;
   };
@@ -100,8 +101,17 @@ export default function ConsentWizard({ registration = false, onSubmit, submitti
   return (
     <div style={{maxWidth:680, margin:'0 auto'}}>
       <p style={{fontSize:12, color:T.muted, textAlign:'center', marginBottom:10}}>
-        Step {registration ? step : step - 1} of {registration ? 5 : 4}
+        Step {step} of 5
       </p>
+      {step === 1 && !registration && (
+        <Card className="fade-in">
+          <SectionTitle>Participant and guardian names</SectionTitle>
+          <p style={{fontSize:12, color:T.muted, lineHeight:1.6, marginBottom:14}}>Enter each legal name once. You will review and sign on the following steps.</p>
+          <Label>Participant legal printed name</Label><input aria-label="Participant legal printed name" value={account.participantPrintedName} onChange={e=>setAccount(a=>({...a,participantPrintedName:e.target.value}))} style={{marginBottom:12}} autoComplete="name" />
+          <Label>Guardian legal printed name</Label><input aria-label="Guardian legal printed name" value={account.guardianPrintedName} onChange={e=>setAccount(a=>({...a,guardianPrintedName:e.target.value}))} style={{marginBottom:12}} autoComplete="name" />
+          {nav(null,2,!namesValid(),'Read Consent Form →')}
+        </Card>
+      )}
       {step === 1 && registration && (
         <Card className="fade-in">
           <SectionTitle>Account, participant, and guardian</SectionTitle>
@@ -126,19 +136,19 @@ export default function ConsentWizard({ registration = false, onSubmit, submitti
         <Card className="fade-in">
           <SectionTitle>Informed Consent Form</SectionTitle>
           <ConsentDocument consent={consent} />
-          {nav(registration ? 1 : null,3,false,'Participant Review →')}
+          {nav(1,3,false,'Participant Review →')}
         </Card>
       )}
       {step === 3 && (
         <Card className="fade-in">
           <SectionTitle>Participant acknowledgment</SectionTitle>
           <p style={{fontSize:13, lineHeight:1.7, marginBottom:14}}>{consent.participant_acknowledgment}</p>
-          {!registration && <><Label>Participant legal printed name</Label><input aria-label="Participant legal printed name" value={account.participantPrintedName} onChange={e=>setAccount(a=>({...a,participantPrintedName:e.target.value}))} style={{marginBottom:12}} /></>}
+          <p style={{fontSize:13, marginBottom:14}}>Signing as: <strong>{account.participantPrintedName.trim()}</strong></p>
           <label style={{display:'flex', gap:10, fontSize:13, marginBottom:16}}><input aria-label="Participant acknowledgment" type="checkbox" checked={participantAck} onChange={e=>setParticipantAck(e.target.checked)} style={{width:'auto'}} /><span>I have read and agree to the participant acknowledgment above.</span></label>
           <SignaturePad ref={participantPad} label="Participant signature" onChange={setParticipantSigned} />
           <div style={{display:'flex', gap:12, marginTop:20}}>
             <Btn onClick={()=>setStep(2)} style={{flex:1}}>← Back</Btn>
-            <Btn onClick={()=>{setParticipantSignaturePng(participantPad.current.toPNG());setStep(4);}} disabled={!participantAck || !participantSigned || !account.participantPrintedName.trim()} primary style={{flex:2}}>Guardian Review →</Btn>
+            <Btn onClick={()=>{setParticipantSignaturePng(participantPad.current.toPNG());setStep(4);}} disabled={!participantAck || !participantSigned || !namesValid()} primary style={{flex:2}}>Guardian Review →</Btn>
           </div>
         </Card>
       )}
@@ -146,12 +156,12 @@ export default function ConsentWizard({ registration = false, onSubmit, submitti
         <Card className="fade-in">
           <SectionTitle>Guardian acknowledgment</SectionTitle>
           <p style={{fontSize:13, lineHeight:1.7, marginBottom:14}}>{consent.guardian_acknowledgment}</p>
-          {!registration && <><Label>Guardian legal printed name</Label><input aria-label="Guardian legal printed name" value={account.guardianPrintedName} onChange={e=>setAccount(a=>({...a,guardianPrintedName:e.target.value}))} style={{marginBottom:12}} /></>}
+          <p style={{fontSize:13, marginBottom:14}}>Signing as parent/guardian: <strong>{account.guardianPrintedName.trim()}</strong></p>
           <label style={{display:'flex', gap:10, fontSize:13, marginBottom:16}}><input aria-label="Guardian acknowledgment" type="checkbox" checked={guardianAck} onChange={e=>setGuardianAck(e.target.checked)} style={{width:'auto'}} /><span>I have read and agree to the guardian acknowledgment above.</span></label>
           <SignaturePad ref={guardianPad} label="Guardian signature" onChange={setGuardianSigned} />
           <div style={{display:'flex', gap:12, marginTop:20}}>
             <Btn onClick={()=>{setParticipantSigned(false);setParticipantSignaturePng(null);setGuardianSigned(false);setGuardianSignaturePng(null);setStep(3);}} style={{flex:1}}>← Back</Btn>
-            <Btn onClick={()=>{setGuardianSignaturePng(guardianPad.current.toPNG());setStep(5);}} disabled={!guardianAck || !guardianSigned || !account.guardianPrintedName.trim()} primary style={{flex:2}}>Final Review →</Btn>
+            <Btn onClick={()=>{setGuardianSignaturePng(guardianPad.current.toPNG());setStep(5);}} disabled={!guardianAck || !guardianSigned || !namesValid()} primary style={{flex:2}}>Final Review →</Btn>
           </div>
         </Card>
       )}
@@ -159,8 +169,8 @@ export default function ConsentWizard({ registration = false, onSubmit, submitti
         <Card className="fade-in">
           <SectionTitle>Final review and submit</SectionTitle>
           <div style={{fontSize:13, lineHeight:1.9}}>
-            <div>Participant: <strong>{account.participantPrintedName}</strong></div>
-            <div>Guardian: <strong>{account.guardianPrintedName}</strong></div>
+            <div>Participant: <strong>{account.participantPrintedName.trim()}</strong></div>
+            <div>Guardian: <strong>{account.guardianPrintedName.trim()}</strong></div>
             <div>Participant acknowledgment and signature: <strong>Complete</strong></div>
             <div>Guardian acknowledgment and signature: <strong>Complete</strong></div>
             <div>Consent version: <strong>{consent.consent_version}</strong></div>

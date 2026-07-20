@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 import io
 import zipfile
-from datetime import date
+from datetime import UTC, date, datetime
 from uuid import uuid4
 
 import pytest
@@ -25,7 +25,7 @@ from app.services.consent_content import (
     EXPECTED_TEMPLATE_SHA256,
     SURVEY_VERSION,
 )
-from app.services.consent_pdf_service import ConsentPdfError, validate_signature_png
+from app.services.consent_pdf_service import ConsentPdfError, pdf_signing_date, validate_signature_png
 from app.utils.security import (
     create_access_token,
     create_researcher_access_token,
@@ -171,6 +171,11 @@ def test_signature_validation_rejects_blank_and_oversized():
         )
 
 
+def test_pdf_signing_date_uses_new_york_local_calendar():
+    utc = datetime(2026, 7, 20, 2, 0, tzinfo=UTC)
+    assert pdf_signing_date(utc) == "07/19/26"
+
+
 def test_atomic_registration_pdf_content_hashes_and_idempotency(
     client: TestClient,
     db: Session,
@@ -207,8 +212,8 @@ def test_atomic_registration_pdf_content_hashes_and_idempotency(
     text = "\n".join(page.extract_text() or "" for page in reader.pages)
     assert "Test Student" in text
     assert "Test Guardian" in text
-    assert record.participant_signed_at.strftime("%m/%d/%y") in text
-    assert record.guardian_signed_at.strftime("%m/%d/%y") in text
+    assert pdf_signing_date(record.participant_signed_at) in text
+    assert pdf_signing_date(record.guardian_signed_at) in text
     assert EXPECTED_STATIC_VALUES["project_title"] in text
     assert "NeuroCortex Survey/Questionnaire Appendix" in text
     assert "Major exam in the next 3 days?" in text

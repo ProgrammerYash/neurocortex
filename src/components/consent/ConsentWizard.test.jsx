@@ -13,23 +13,34 @@ describe('ConsentWizard',()=>{
     let resolve;
     const onSubmit=vi.fn(()=>new Promise(done=>{resolve=done;}));
     render(<ConsentWizard onSubmit={onSubmit}/>);
+    fireEvent.change(await screen.findByLabelText('Participant legal printed name'),{target:{value:'Student Name'}});
+    fireEvent.change(screen.getByLabelText('Guardian legal printed name'),{target:{value:'Guardian Name'}});
+    fireEvent.click(screen.getByRole('button',{name:/Read Consent Form/}));
     expect(await screen.findByText('Purpose text')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button',{name:/Participant Review/}));
     expect(screen.getByText('Participant approved words')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Participant legal printed name'),{target:{value:'Student Name'}});
+    expect(screen.getByText(/Signing as:/)).toHaveTextContent('Student Name');
+    expect(screen.queryByLabelText('Participant legal printed name')).not.toBeInTheDocument();
     const participantNext=screen.getByRole('button',{name:/Guardian Review/});
     expect(participantNext).toBeDisabled();
     fireEvent.click(screen.getByLabelText('Participant acknowledgment'));
     sign(screen.getByLabelText('Participant signature'));
     fireEvent.click(participantNext);
-    fireEvent.change(screen.getByLabelText('Guardian legal printed name'),{target:{value:'Guardian Name'}});
+    expect(screen.getByText(/Signing as parent\/guardian:/)).toHaveTextContent('Guardian Name');
+    expect(screen.queryByLabelText('Guardian legal printed name')).not.toBeInTheDocument();
     fireEvent.click(screen.getByLabelText('Guardian acknowledgment'));
     sign(screen.getByLabelText('Guardian signature'));
     fireEvent.click(screen.getByRole('button',{name:/Final Review/}));
     const submit=screen.getByRole('button',{name:'Submit Consent'});
     fireEvent.click(submit);fireEvent.click(submit);
     expect(onSubmit).toHaveBeenCalledTimes(1);
-    expect(onSubmit.mock.calls[0][0]).toMatchObject({participantAcknowledged:true,guardianAcknowledged:true,consentVersion:'v1'});
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({
+      participantPrintedName:'Student Name',
+      guardianPrintedName:'Guardian Name',
+      participantAcknowledged:true,
+      guardianAcknowledged:true,
+      consentVersion:'v1',
+    });
     resolve();
     await waitFor(()=>expect(onSubmit).toHaveBeenCalledTimes(1));
   });

@@ -6,8 +6,9 @@ import base64
 import binascii
 import hashlib
 import io
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from PIL import Image, ImageChops, ImageFile, UnidentifiedImageError
 from pypdf import PdfReader, PdfWriter
@@ -65,6 +66,14 @@ REQUIRED_FIELDS = frozenset(
 
 STUDENT_SIGNATURE_FIELD = "Form 4 AIC Signature"
 GUARDIAN_SIGNATURE_FIELD = "Form 4 Sample Signature 5"
+STUDY_TIMEZONE = ZoneInfo("America/New_York")
+
+
+def pdf_signing_date(signed_at: datetime) -> str:
+    """Format a UTC signing timestamp as MM/DD/YY in study local time."""
+    if signed_at.tzinfo is None:
+        signed_at = signed_at.replace(tzinfo=UTC)
+    return signed_at.astimezone(STUDY_TIMEZONE).strftime("%m/%d/%y")
 
 
 class ConsentPdfError(ValueError):
@@ -256,9 +265,9 @@ def _generate_with_pypdf_reportlab(
     values = {
         **{field_name: str(fields[field_name].get("/V") or "") for field_name in REQUIRED_FIELDS},
         "Form 4 Research Participant Printed Name": participant_name,
-        "Form 4 AIC or MA Date Reviewed and Signed": participant_signed_at.strftime("%m/%d/%y"),
+        "Form 4 AIC or MA Date Reviewed and Signed": pdf_signing_date(participant_signed_at),
         "Form 4 Parent Guardian Printed Name": guardian_name,
-        "Form 4 Parent Guardian Date Reviewed and Signed": guardian_signed_at.strftime("%m/%d/%y"),
+        "Form 4 Parent Guardian Date Reviewed and Signed": pdf_signing_date(guardian_signed_at),
     }
     overlay_buffer = io.BytesIO()
     overlay_canvas = canvas.Canvas(overlay_buffer, pagesize=letter, pageCompression=1)
@@ -336,8 +345,8 @@ def generate_consent_pdf(
         final_pdf,
         participant_name=participant_name,
         guardian_name=guardian_name,
-        participant_date=participant_signed_at.strftime("%m/%d/%y"),
-        guardian_date=guardian_signed_at.strftime("%m/%d/%y"),
+        participant_date=pdf_signing_date(participant_signed_at),
+        guardian_date=pdf_signing_date(guardian_signed_at),
         student_rect=student_rect,
         guardian_rect=guardian_rect,
     )
