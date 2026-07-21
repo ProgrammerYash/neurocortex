@@ -26,18 +26,15 @@ import ResearcherDashboard from './components/research/ResearcherDashboard.jsx';
 import Toast from './components/ui/Toast.jsx';
 import ChangePinScreen from './components/auth/ChangePinScreen.jsx';
 import ConsentCompletionScreen from './components/consent/ConsentCompletionScreen.jsx';
+import PublicHome from './components/home/PublicHome.jsx';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
-  const [screen, setScreen] = useState("splash");
+  const [screen, setScreen] = useState("home");
   const [sessions, setSessions]= useState([]);
   const [gameData, setGameData] = useState(null);
   const [toast, setToast] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
-
-  useEffect(()=>{
-    setTimeout(()=>setScreen(prev=>prev==="splash"?"welcome":prev), 1800);
-  },[]);
 
   useEffect(()=>{
     if (import.meta.env.VITE_USE_LOCAL_STORE === 'true') return;
@@ -163,7 +160,7 @@ export default function App() {
 
   const logout = useCallback(()=>{
     Store.clearAuth();
-    setCurrentUser(null); setSessions([]); setGameData(null); setScreen("welcome");
+    setCurrentUser(null); setSessions([]); setGameData(null); setScreen("home");
   },[]);
 
   // FIX-2 + FIX-3: upserts into today's record only; historical intact
@@ -251,9 +248,16 @@ export default function App() {
 
   const screens = {
     splash: <Splash />,
+    home: (
+      <PublicHome
+        onJoinStudy={() => setScreen('register')}
+        onSignIn={() => setScreen('login')}
+        onResearcherAccess={() => setScreen('register')}
+      />
+    ),
     welcome: <Welcome onLogin={()=>setScreen("login")} onRegister={()=>setScreen("register")} />,
-    login: <LoginScreen onLogin={login} onBack={()=>setScreen("welcome")} />,
-    register: <RegisterScreen onRegister={login} onBack={()=>setScreen("welcome")} showToast={showToast} />,
+    login: <LoginScreen onLogin={login} onBack={()=>setScreen("home")} />,
+    register: <RegisterScreen onRegister={login} onBack={()=>setScreen("home")} showToast={showToast} />,
     consent: <ConsentCompletionScreen onComplete={completeExistingConsent} onLogout={logout} showToast={showToast} />,
     'change-pin': <ChangePinScreen onComplete={completePinChange} onLogout={logout} />,
     dashboard: <Dashboard user={currentUser} sessions={sessions} todaySessions={todaySessions} todayComplete={todayComplete} gameData={gameData} countdown={countdown} onNavigate={setScreen} onLogout={logout} showToast={showToast} unreadCount={unreadCount} onUnreadChange={setUnreadCount} />,
@@ -278,7 +282,7 @@ export default function App() {
   return (
     <div style={{fontFamily:T.font,background:T.bg,minHeight:"100vh",color:T.text}}>
       <style>{css}</style>
-      {screens[screen]||screens.dashboard}
+      {screens[screen]||screens.home}
       {toast && <Toast msg={toast.msg} type={toast.type} />}
     </div>
   );
