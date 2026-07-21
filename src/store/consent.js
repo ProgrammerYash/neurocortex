@@ -1,4 +1,4 @@
-import { apiBlobRequest, apiRequest } from './apiClient.js';
+import { apiBlob, apiRequest } from './apiClient.js';
 
 export async function fetchCurrentConsent() {
   return apiRequest('/v1/consent/current', { auth: false });
@@ -38,15 +38,21 @@ export function fetchResearcherConsents({ limit = 20, offset = 0, search = '', s
 }
 
 export function fetchConsentPdf(id) {
-  return apiBlobRequest(`/v1/researcher/consents/${encodeURIComponent(id)}/pdf`);
+  return apiBlob(`/v1/researcher/consents/${encodeURIComponent(id)}/pdf`, {
+    filenameFallback: 'consent.pdf',
+  });
 }
 
 export function downloadConsent(id) {
-  return apiBlobRequest(`/v1/researcher/consents/${encodeURIComponent(id)}/download`);
+  return apiBlob(`/v1/researcher/consents/${encodeURIComponent(id)}/download`, {
+    filenameFallback: 'consent.pdf',
+  });
 }
 
 export function downloadAllConsents() {
-  return apiBlobRequest('/v1/researcher/consents/download-all');
+  return apiBlob('/v1/researcher/consents/download-all', {
+    filenameFallback: 'neurocortex-consents.zip',
+  });
 }
 
 export async function withdrawParticipation() {

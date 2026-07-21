@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { T } from '../../constants/tokens.js';
 import Btn from '../ui/Btn.jsx';
 import { downloadConsent, fetchConsentPdf } from '../../store/consent.js';
+import { ensurePdfBlob, revokeObjectUrlLater, triggerBlobDownload } from '../../utils/blobDownload.js';
 
-function revokeLater(url) {
-  if (!url) return;
-  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
+const VIEW_ERROR = 'Unable to open the consent PDF.';
+const DOWNLOAD_ERROR = 'Unable to download the consent PDF.';
+const POPUP_BLOCKED = 'Your browser blocked the PDF tab. Allow pop-ups for this site and try again.';
 
 export default function ParticipantConsentSection({ detail, showToast }) {
   const [busyAction, setBusyAction] = useState('');
@@ -16,36 +16,48 @@ export default function ParticipantConsentSection({ detail, showToast }) {
 
   const recorded = detail.consentRecorded && detail.consentRecordId;
 
-  const viewPdf = async () => {
-    setBusyAction('view');
+  const viewPdf = () => {
+    if (busyAction) return;
     setError('');
-    try {
-      const blob = await fetchConsentPdf(detail.consentRecordId);
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank', 'noopener,noreferrer');
-      revokeLater(url);
-    } catch (err) {
-      setError(err.message || 'Could not open consent PDF.');
-      showToast?.(err.message || 'Could not open consent PDF.', 'error');
-    } finally {
-      setBusyAction('');
+    const newTab = window.open('', '_blank');
+    if (!newTab) {
+      setError(POPUP_BLOCKED);
+      showToast?.(POPUP_BLOCKED, 'error');
+      return;
     }
+
+    setBusyAction('view');
+    (async () => {
+      try {
+        const { blob, contentType } = await fetchConsentPdf(detail.consentRecordId);
+        const pdfBlob = ensurePdfBlob(blob, contentType);
+        const objectUrl = URL.createObjectURL(pdfBlob);
+        newTab.location.href = objectUrl;
+        revokeObjectUrlLater(objectUrl);
+      } catch {
+        newTab.close();
+        setError(VIEW_ERROR);
+        showToast?.(VIEW_ERROR, 'error');
+      } finally {
+        setBusyAction('');
+      }
+    })();
   };
 
   const downloadPdf = async () => {
+    if (busyAction) return;
     setBusyAction('download');
     setError('');
     try {
-      const blob = await downloadConsent(detail.consentRecordId);
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `${detail.participantId}-consent.pdf`;
-      anchor.click();
-      revokeLater(url);
-    } catch (err) {
-      setError(err.message || 'Could not download consent PDF.');
-      showToast?.(err.message || 'Could not download consent PDF.', 'error');
+      const { blob, filename, contentType } = await downloadConsent(detail.consentRecordId);
+      const pdfBlob = ensurePdfBlob(blob, contentType);
+      const safeName = filename && filename !== 'consent.pdf' && filename !== 'download'
+        ? filename
+        : `${detail.participantId}-consent.pdf`;
+      triggerBlobDownload(pdfBlob, safeName);
+    } catch {
+      setError(DOWNLOAD_ERROR);
+      showToast?.(DOWNLOAD_ERROR, 'error');
     } finally {
       setBusyAction('');
     }
@@ -67,10 +79,10 @@ export default function ParticipantConsentSection({ detail, showToast }) {
             <div>Consent version: <strong>{detail.consentVersion || '—'}</strong></div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Btn disabled={busyAction === 'view'} onClick={viewPdf}>
+            <Btn disabled={!!busyAction} onClick={viewPdf}>
               {busyAction === 'view' ? 'Opening…' : 'View PDF'}
             </Btn>
-            <Btn disabled={busyAction === 'download'} onClick={downloadPdf}>
+            <Btn disabled={!!busyAction} onClick={downloadPdf}>
               {busyAction === 'download' ? 'Downloading…' : 'Download PDF'}
             </Btn>
           </div>

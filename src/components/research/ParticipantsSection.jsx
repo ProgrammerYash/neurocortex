@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { T } from '../../constants/tokens.js';
 import { fetchDashboardParticipantDetail, fetchDashboardParticipants } from '../../store/research.js';
 import { downloadAllConsents } from '../../store/consent.js';
+import { ensureZipBlob, triggerBlobDownload } from '../../utils/blobDownload.js';
 import Card from '../ui/Card.jsx';
 import Btn from '../ui/Btn.jsx';
 import SectionTitle from '../ui/SectionTitle.jsx';
@@ -134,18 +135,18 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast }) {
   };
 
   const downloadAll = async () => {
+    if (zipBusy) return;
     setZipBusy(true);
     try {
-      const blob = await downloadAllConsents();
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = 'neurocortex-consents.zip';
-      anchor.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      const { blob, filename, contentType } = await downloadAllConsents();
+      const zipBlob = ensureZipBlob(blob, contentType);
+      const safeName = filename && filename !== 'download'
+        ? filename
+        : 'neurocortex-consents.zip';
+      triggerBlobDownload(zipBlob, safeName);
       showToast?.('Consent archive downloaded.', 'success');
-    } catch (err) {
-      showToast?.(err.message || 'Could not download consent archive.', 'error');
+    } catch {
+      showToast?.('Unable to download the consent ZIP.', 'error');
     } finally {
       setZipBusy(false);
     }
