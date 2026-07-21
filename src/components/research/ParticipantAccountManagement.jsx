@@ -24,8 +24,6 @@ function actionLabel(actionType) {
 }
 
 export default function ParticipantAccountManagement({ detail, onUpdated }) {
-  const [actions, setActions] = useState([]);
-  const [loadingActions, setLoadingActions] = useState(true);
   const [modal, setModal] = useState('');
   const [reason, setReason] = useState('');
   const [duration, setDuration] = useState('24_hours');
@@ -37,22 +35,12 @@ export default function ParticipantAccountManagement({ detail, onUpdated }) {
   const status = detail?.status;
   const removed = status === 'Removed' || detail?.isRemoved;
 
-  const loadActions = () => {
-    if (!detail?.participantId) return Promise.resolve();
-    setLoadingActions(true);
-    return fetchParticipantAccountActions(detail.participantId)
-      .then(data => setActions(Array.isArray(data.items) ? data.items : []))
-      .catch(() => setActions([]))
-      .finally(() => setLoadingActions(false));
-  };
-
   useEffect(() => {
     setTemporaryPin('');
     setModal('');
     setReason('');
     setConfirmId('');
     setError('');
-    loadActions();
   }, [detail?.participantId]);
 
   const runAction = async fn => {
@@ -64,7 +52,6 @@ export default function ParticipantAccountManagement({ detail, onUpdated }) {
       setReason('');
       setConfirmId('');
       await onUpdated?.();
-      await loadActions();
     } catch (err) {
       setError(err.message || 'Action failed.');
     } finally {
@@ -240,9 +227,28 @@ export default function ParticipantAccountManagement({ detail, onUpdated }) {
         </div>
       )}
 
-      <h4 style={{ fontSize: 11, color: T.muted, textTransform: 'uppercase', letterSpacing: 1, margin: '12px 0 8px' }}>
+    </section>
+  );
+}
+
+export function AccountActionHistory({ participantId, refreshKey = 0 }) {
+  const [actions, setActions] = useState([]);
+  const [loadingActions, setLoadingActions] = useState(true);
+
+  useEffect(() => {
+    if (!participantId) return undefined;
+    setLoadingActions(true);
+    fetchParticipantAccountActions(participantId)
+      .then(data => setActions(Array.isArray(data.items) ? data.items : []))
+      .catch(() => setActions([]))
+      .finally(() => setLoadingActions(false));
+  }, [participantId, refreshKey]);
+
+  return (
+    <section style={{ marginTop: 18, borderTop: `1px solid ${T.faint}`, paddingTop: 18 }}>
+      <h3 style={{ fontSize: 12, color: T.muted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
         Account action history
-      </h4>
+      </h3>
       {loadingActions ? (
         <p style={{ color: T.muted, fontSize: 13 }}>Loading action history…</p>
       ) : !actions.length ? (

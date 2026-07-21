@@ -303,9 +303,6 @@ def _generate_with_pypdf_reportlab(
     output_page.merge_page(PdfReader(overlay_buffer).pages[0])
     if NameObject("/Annots") in output_page:
         del output_page[NameObject("/Annots")]
-    appendix_reader = PdfReader(io.BytesIO(_appendix_pdf(participant_signed_at)))
-    for appendix_page in appendix_reader.pages:
-        writer.add_page(appendix_page)
     output = io.BytesIO()
     writer.write(output)
     return output.getvalue(), widgets[STUDENT_SIGNATURE_FIELD], widgets[GUARDIAN_SIGNATURE_FIELD]
@@ -367,11 +364,11 @@ def _validate_generated_pdf(
         raise ConsentPdfError("Completed consent output is not a valid PDF")
     try:
         reader = PdfReader(io.BytesIO(pdf_bytes))
-        if len(reader.pages) < 2:
-            raise ConsentPdfError("Completed consent is missing the questionnaire appendix")
+        if len(reader.pages) != 1:
+            raise ConsentPdfError("Completed consent must be exactly one page")
         if reader.get_fields():
             raise ConsentPdfError("Completed consent PDF was not flattened")
-        text = "\n".join((page.extract_text() or "") for page in reader.pages)
+        text = reader.pages[0].extract_text() or ""
         for expected in (
             participant_name,
             guardian_name,
@@ -379,9 +376,6 @@ def _validate_generated_pdf(
             guardian_date,
             EXPECTED_STATIC_VALUES["student_researcher"],
             "NeuroCortex",
-            "NeuroCortex Survey/Questionnaire Appendix",
-            CONSENT_VERSION,
-            SURVEY_VERSION,
         ):
             if expected not in text:
                 raise ConsentPdfError("Completed consent PDF failed content validation")
@@ -447,3 +441,26 @@ def _validate_generated_pdf(
         raise
     except Exception as exc:
         raise ConsentPdfError("Completed consent PDF failed validation") from exc
+
+
+def delivery_pdf_bytes(stored_pdf_bytes: bytes) -> bytes:
+    """Return a one-page consent PDF for researcher delivery without mutating storage."""
+    if not stored_pdf_bytes.startswith(b"%PDF"):
+        raise ConsentPdfError("Stored consent document is not a valid PDF")
+    reader = PdfReader(io.BytesIO(stored_pdf_bytes))
+    page_count = len(reader.pages)
+    if page_count == 0:
+        raise ConsentPdfError("Stored consent document has no pages")
+    if page_count == 1:
+        return stored_pdf_bytes
+    writer = PdfWriter()
+    writer.add_page(reader.pages[0])
+    output = io.BytesIO()
+    writer.write(output)
+    delivery = output.getvalue()
+    if not delivery.startswith(b"%PDF"):
+        raise ConsentPdfError("One-page consent delivery PDF is invalid")
+    delivery_reader = PdfReader(io.BytesIO(delivery))
+    if len(delivery_reader.pages) != 1:
+        raise ConsentPdfError("One-page consent delivery PDF is invalid")
+    return delivery

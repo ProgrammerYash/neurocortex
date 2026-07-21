@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { T } from '../../constants/tokens.js';
 import Btn from '../ui/Btn.jsx';
+import { fetchUnreadMessageCount } from '../../store/messages.js';
 import PetBanner from './PetBanner.jsx';
 import TodayTab from './TodayTab.jsx';
 import ProgressTab from './ProgressTab.jsx';
@@ -8,9 +9,10 @@ import ConsentStatusTab from './ConsentStatusTab.jsx';
 import { fetchMyConsentStatus } from '../../store/consent.js';
 import { calcBurnout } from '../../utils/burnout.js';
 
-export default function Dashboard({user,sessions,todaySessions,todayComplete,gameData,countdown,onNavigate,onLogout,showToast}) {
+export default function Dashboard({user,sessions,todaySessions,todayComplete,gameData,countdown,onNavigate,onLogout,showToast,unreadCount=0,onUnreadChange}) {
   const [tab,setTab]=useState("today");
   const [sessionBlockMessage,setSessionBlockMessage]=useState(null);
+  const [localUnread, setLocalUnread] = useState(unreadCount);
   const g=gameData;
   const isWeeklyDay=new Date().getDay()===5; // Friday
   const hasNasaTLX=!!todaySessions?.nasaTLX;
@@ -24,6 +26,23 @@ export default function Dashboard({user,sessions,todaySessions,todayComplete,gam
   const completed=modules.filter(m=>m.done).length;
   const pct=Math.round(completed/modules.length*100);
   const cognitiveOverloadIndex = todayComplete ? calcBurnout(todaySessions) : null;
+
+  useEffect(() => {
+    let active = true;
+    fetchUnreadMessageCount()
+      .then(data => {
+        if (!active) return;
+        const count = Number(data.unread_count) || 0;
+        setLocalUnread(count);
+        onUnreadChange?.(count);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [user?.id, onUnreadChange]);
+
+  useEffect(() => {
+    setLocalUnread(unreadCount);
+  }, [unreadCount]);
 
   useEffect(() => {
     let active = true;
@@ -50,6 +69,29 @@ export default function Dashboard({user,sessions,todaySessions,todayComplete,gam
           <div style={{fontFamily:T.mono,fontSize:11,color:T.muted,marginTop:2}}>{user?.id}</div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <Btn onClick={() => onNavigate('inbox')} style={{fontSize:12,padding:"7px 12px", position:'relative'}}>
+            Inbox
+            {localUnread > 0 && (
+              <span style={{
+                position:'absolute',
+                top:-6,
+                right:-6,
+                minWidth:18,
+                height:18,
+                borderRadius:999,
+                background:T.red,
+                color:'#fff',
+                fontSize:10,
+                fontWeight:700,
+                display:'inline-flex',
+                alignItems:'center',
+                justifyContent:'center',
+                padding:'0 4px',
+              }}>
+                {localUnread}
+              </span>
+            )}
+          </Btn>
           {g&&<div style={{display:"flex",alignItems:"center",gap:6,background:T.surface,borderRadius:20,padding:"6px 12px",border:`1px solid ${T.faint}`}}>
             <span style={{fontSize:14}}>🪙</span>
             <span style={{fontSize:13,fontWeight:600,color:T.gold}}>{g.coins}</span>

@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from app.models.consent_record import ConsentRecord
     from app.models.daily_session import DailySession
     from app.models.participant_account_action import ParticipantAccountAction
+    from app.models.participant_message import ParticipantMessage
     from app.models.participant_game_data import ParticipantGameData
 
 
@@ -61,6 +62,10 @@ class Participant(Base):
         passive_deletes=True,
     )
     account_actions: Mapped[list["ParticipantAccountAction"]] = relationship(
+        back_populates="participant",
+        passive_deletes=True,
+    )
+    messages: Mapped[list["ParticipantMessage"]] = relationship(
         back_populates="participant",
         passive_deletes=True,
     )

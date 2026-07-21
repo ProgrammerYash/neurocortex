@@ -349,6 +349,8 @@ def _build_participant_row(
         "averageSleepHours": metrics["average_sleep_hours"],
         "averageMemoryAccuracy": metrics["average_memory_accuracy"],
         "sessionCompletion": metrics["session_completion"],
+        "consentRecorded": consent is not None,
+        "consentRecordId": str(consent.id) if consent else None,
         "_metrics": metrics,
     }
 
@@ -507,9 +509,15 @@ def get_dashboard_participant_detail(db: Session, public_id: str) -> dict[str, A
     row = _strip_internal(rows[0])
     metrics = rows[0]["_metrics"]
     account = account_state_payload(participant)
+    consent = _load_consent_names(db, [participant.id]).get(participant.id)
     return {
         **row,
         **account,
+        "consentRecorded": consent is not None,
+        "consentRecordId": str(consent.id) if consent else None,
+        "consentVersion": consent.consent_version if consent else None,
+        "consentStudentSignedDisplay": format_study_datetime(consent.participant_signed_at) if consent else None,
+        "consentGuardianSignedDisplay": format_study_datetime(consent.guardian_signed_at) if consent else None,
         "sessionsStarted": metrics["sessions_started"],
         "sessionsCompleted": metrics["sessions_completed"],
         "recentSessions": [

@@ -25,7 +25,7 @@ from app.services.consent_content import (
     EXPECTED_TEMPLATE_SHA256,
     SURVEY_VERSION,
 )
-from app.services.consent_pdf_service import ConsentPdfError, pdf_signing_date, validate_signature_png
+from app.services.consent_pdf_service import ConsentPdfError, delivery_pdf_bytes, pdf_signing_date, validate_signature_png
 from app.utils.security import (
     create_access_token,
     create_researcher_access_token,
@@ -207,23 +207,23 @@ def test_atomic_registration_pdf_content_hashes_and_idempotency(
     assert original_bytes.startswith(b"%PDF")
 
     reader = PdfReader(io.BytesIO(original_bytes))
-    assert len(reader.pages) >= 2
+    assert len(reader.pages) == 1
     assert not reader.get_fields()
-    text = "\n".join(page.extract_text() or "" for page in reader.pages)
+    text = reader.pages[0].extract_text() or ""
     assert "Test Student" in text
     assert "Test Guardian" in text
     assert pdf_signing_date(record.participant_signed_at) in text
     assert pdf_signing_date(record.guardian_signed_at) in text
     assert EXPECTED_STATIC_VALUES["project_title"] in text
-    assert "NeuroCortex Survey/Questionnaire Appendix" in text
-    assert "Major exam in the next 3 days?" in text
+    assert "NeuroCortex Survey/Questionnaire Appendix" not in text
+    assert "Major exam in the next 3 days?" not in text
     rendered = pypdfium2.PdfDocument(original_bytes)
     try:
-        assert len(rendered) == len(reader.pages)
-        for page in rendered:
-            image = page.render(scale=2).to_pil().convert("L")
-            assert image.size == (1224, 1584)
-            assert image.getextrema()[0] < 250
+        assert len(rendered) == 1
+        page = rendered[0]
+        image = page.render(scale=2).to_pil().convert("L")
+        assert image.size == (1224, 1584)
+        assert image.getextrema()[0] < 250
     finally:
         rendered.close()
 
@@ -365,6 +365,7 @@ def test_researcher_metadata_pdf_download_zip_and_participant_denial(
     )
     assert inline.status_code == 200
     assert inline.content.startswith(b"%PDF")
+    assert len(PdfReader(io.BytesIO(inline.content)).pages) == 1
     assert inline.headers["cache-control"] == "private, no-store"
     assert inline.headers["x-content-type-options"] == "nosniff"
     assert inline.headers["content-disposition"].startswith("inline")
@@ -374,6 +375,7 @@ def test_researcher_metadata_pdf_download_zip_and_participant_denial(
         headers=researcher_headers,
     )
     assert download.status_code == 200
+    assert len(PdfReader(io.BytesIO(download.content)).pages) == 1
     assert download.headers["content-disposition"].startswith("attachment")
 
     archive_response = client.get(
@@ -387,6 +389,8 @@ def test_researcher_metadata_pdf_download_zip_and_participant_denial(
         assert f"{registered.json()['public_id']}-consent.pdf" in names
         assert all("/" not in name and "\\" not in name for name in names)
         assert "PDF SHA-256" in archive.read("manifest.csv").decode("utf-8-sig")
+        pdf_bytes = archive.read(f"{registered.json()['public_id']}-consent.pdf")
+        assert len(PdfReader(io.BytesIO(pdf_bytes)).pages) == 1
 
     missing = client.get(
         f"/v1/researcher/consents/{uuid4()}/pdf",
@@ -422,3 +426,31 @@ def test_signature_request_body_limit(client: TestClient):
         headers={"Content-Type": "application/json"},
     )
     assert response.status_code == 413
+
+
+def test_delivery_pdf_bytes_reduces_legacy_two_page_record_without_mutating_storage(
+    client: TestClient,
+    db: Session,
+):
+    registered = register(client)
+    assert registered.status_code == 201, registered.text
+    record = db.execute(select(ConsentRecord)).scalar_one()
+    original_bytes = bytes(record.pdf_bytes)
+    original_hash = record.pdf_sha256
+    assert len(PdfReader(io.BytesIO(original_bytes)).pages) == 1
+
+    writer = __import__("pypdf").PdfWriter()
+    reader = PdfReader(io.BytesIO(original_bytes))
+    writer.add_page(reader.pages[0])
+    writer.add_page(reader.pages[0])
+    buffer = io.BytesIO()
+    writer.write(buffer)
+    legacy_bytes = buffer.getvalue()
+
+    delivered = delivery_pdf_bytes(legacy_bytes)
+    assert len(PdfReader(io.BytesIO(delivered)).pages) == 1
+    assert delivered.startswith(b"%PDF")
+
+    db.refresh(record)
+    assert bytes(record.pdf_bytes) == original_bytes
+    assert record.pdf_sha256 == original_hash

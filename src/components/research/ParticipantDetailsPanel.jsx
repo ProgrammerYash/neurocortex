@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { T } from '../../constants/tokens.js';
 import Btn from '../ui/Btn.jsx';
 
@@ -21,7 +22,9 @@ export function formatPercent(value) {
   return dash(value) === '—' ? '—' : `${Number(value).toFixed(1)}%`;
 }
 
-import ParticipantAccountManagement from './ParticipantAccountManagement.jsx';
+import ParticipantAccountManagement, { AccountActionHistory } from './ParticipantAccountManagement.jsx';
+import ParticipantMessaging from './ParticipantMessaging.jsx';
+import ParticipantConsentSection from './ParticipantConsentSection.jsx';
 
 function statusColor(status) {
   if (status === 'Active') return T.green;
@@ -31,7 +34,8 @@ function statusColor(status) {
   return T.muted;
 }
 
-export default function ParticipantDetailsPanel({ detail, onClose, onRefresh }) {
+export default function ParticipantDetailsPanel({ detail, onClose, onRefresh, showToast }) {
+  const [actionRefresh, setActionRefresh] = useState(0);
   if (!detail) return null;
   return (
     <div
@@ -51,7 +55,7 @@ export default function ParticipantDetailsPanel({ detail, onClose, onRefresh }) 
       <div
         onClick={event => event.stopPropagation()}
         style={{
-          width: 'min(520px, 100%)',
+          width: 'min(720px, 100%)',
           height: '100%',
           overflowY: 'auto',
           background: T.card,
@@ -59,7 +63,18 @@ export default function ParticipantDetailsPanel({ detail, onClose, onRefresh }) 
           padding: '20px 18px 28px',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 18 }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: 12,
+          alignItems: 'center',
+          marginBottom: 18,
+          position: 'sticky',
+          top: 0,
+          background: T.card,
+          paddingBottom: 10,
+          zIndex: 1,
+        }}>
           <div>
             <div style={{ fontSize: 11, color: T.muted, textTransform: 'uppercase', letterSpacing: 1 }}>Participant details</div>
             <div style={{ fontFamily: T.mono, color: T.teal, fontSize: 14, marginTop: 4 }}>{detail.participantId}</div>
@@ -129,8 +144,15 @@ export default function ParticipantDetailsPanel({ detail, onClose, onRefresh }) 
           detail={detail}
           onUpdated={async () => {
             if (onRefresh) await onRefresh(detail.participantId);
+            setActionRefresh(value => value + 1);
           }}
         />
+
+        <ParticipantMessaging detail={detail} showToast={showToast} />
+
+        <ParticipantConsentSection detail={detail} showToast={showToast} />
+
+        <AccountActionHistory participantId={detail.participantId} refreshKey={actionRefresh} />
       </div>
     </div>
   );

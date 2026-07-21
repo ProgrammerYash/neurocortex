@@ -12,6 +12,7 @@ import Welcome from './components/auth/Welcome.jsx';
 import RegisterScreen from './components/auth/RegisterScreen.jsx';
 import LoginScreen from './components/auth/LoginScreen.jsx';
 import Dashboard from './components/dashboard/Dashboard.jsx';
+import ParticipantInbox from './components/dashboard/ParticipantInbox.jsx';
 import ReactionTest from './components/modules/ReactionTest.jsx';
 import TypingTest from './components/modules/TypingTest.jsx';
 import MemoryTest from './components/modules/MemoryTest.jsx';
@@ -32,6 +33,7 @@ export default function App() {
   const [sessions, setSessions]= useState([]);
   const [gameData, setGameData] = useState(null);
   const [toast, setToast] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(()=>{
     setTimeout(()=>setScreen(prev=>prev==="splash"?"welcome":prev), 1800);
@@ -254,7 +256,8 @@ export default function App() {
     register: <RegisterScreen onRegister={login} onBack={()=>setScreen("welcome")} showToast={showToast} />,
     consent: <ConsentCompletionScreen onComplete={completeExistingConsent} onLogout={logout} showToast={showToast} />,
     'change-pin': <ChangePinScreen onComplete={completePinChange} onLogout={logout} />,
-    dashboard: <Dashboard user={currentUser} sessions={sessions} todaySessions={todaySessions} todayComplete={todayComplete} gameData={gameData} countdown={countdown} onNavigate={setScreen} onLogout={logout} showToast={showToast} />,
+    dashboard: <Dashboard user={currentUser} sessions={sessions} todaySessions={todaySessions} todayComplete={todayComplete} gameData={gameData} countdown={countdown} onNavigate={setScreen} onLogout={logout} showToast={showToast} unreadCount={unreadCount} onUnreadChange={setUnreadCount} />,
+    inbox: <ParticipantInbox onBack={() => setScreen('dashboard')} onUnreadChange={setUnreadCount} showToast={showToast} />,
     reaction: <ReactionTest locked={!!todaySessions.reaction} onComplete={async d=>{const updated=await saveSession("reaction",d);await maybeCompleteDay(updated);setScreen("dashboard");showToast("⚡ Reaction Test complete! +10 XP","success");}} onBack={()=>setScreen("dashboard")} />,
     typing: <TypingTest locked={!!todaySessions.typing} onComplete={async d=>{const updated=await saveSession("typing",d);await maybeCompleteDay(updated);setScreen("dashboard");showToast("⌨️ Typing analysis saved!","success");}} onBack={()=>setScreen("dashboard")} />,
     memory: <MemoryTest locked={!!todaySessions.memory} onComplete={async d=>{const updated=await saveSession("memory",d);await maybeCompleteDay(updated);setScreen("dashboard");showToast("🧩 Memory data recorded!","success");}} onBack={()=>setScreen("dashboard")} />,
@@ -269,7 +272,7 @@ export default function App() {
     pet: <PetScreen gameData={gameData} updateGame={updateGame} onBack={()=>setScreen("dashboard")} showToast={showToast} />,
     achievements: <AchievementsScreen gameData={gameData} onBack={()=>setScreen("dashboard")} />,
     neuroverse: <NeuroVerse gameData={gameData} sessions={sessions} onBack={()=>setScreen("dashboard")} />,
-    researcher: <ResearcherDashboard onBack={logout} />,
+    researcher: <ResearcherDashboard onBack={logout} showToast={showToast} />,
   };
 
   return (

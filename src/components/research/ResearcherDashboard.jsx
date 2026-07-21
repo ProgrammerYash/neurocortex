@@ -11,7 +11,7 @@ function summaryValue(label, value, formatter = value => value) {
   return formatter(value);
 }
 
-export default function ResearcherDashboard({ onBack }) {
+export default function ResearcherDashboard({ onBack, showToast }) {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -81,7 +81,7 @@ export default function ResearcherDashboard({ onBack }) {
         ))}
       </div>
 
-      <ParticipantsSection onSummaryRefresh={load} />
+      <ParticipantsSection onSummaryRefresh={load} showToast={showToast} />
     </div>
   );
 }

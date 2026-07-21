@@ -52,6 +52,8 @@ class DashboardParticipantRow(BaseModel):
     averageSleepHours: float | None = None
     averageMemoryAccuracy: float | None = None
     sessionCompletion: float | None = None
+    consentRecorded: bool = False
+    consentRecordId: str | None = None
 
 
 class DashboardParticipantsPage(BaseModel):
@@ -103,3 +105,8 @@ class DashboardParticipantDetail(BaseModel):
     removedAt: datetime | None = None
     removalReason: str | None = None
     mustChangePin: bool = False
+    consentRecorded: bool = False
+    consentRecordId: str | None = None
+    consentVersion: str | None = None
+    consentStudentSignedDisplay: str | None = None
+    consentGuardianSignedDisplay: str | None = None

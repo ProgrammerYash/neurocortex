@@ -34,6 +34,7 @@ from app.schemas.account import (
     RemoveAccountRequest,
     SuspendParticipantRequest,
 )
+from app.schemas.message import MessagePage, MessageResponse, SendMessageRequest
 from app.schemas.research import (
     DashboardParticipantDetail,
     DashboardParticipantsPage,
@@ -113,6 +114,11 @@ from app.services.participant_account_service import (
     suspend_participant,
     unsuspend_participant,
 )
+from app.services.participant_message_service import (
+    MessageError,
+    list_researcher_participant_messages,
+    send_participant_message,
+)
 from app.services.researcher_dashboard_service import (
     get_dashboard_participant_detail,
     get_dashboard_summary,
@@ -137,6 +143,13 @@ def _account_http_error(exc: AccountError) -> HTTPException:
     if exc.error_code:
         detail["error_code"] = exc.error_code
     detail.update(exc.extra)
+    return HTTPException(status_code=exc.status_code, detail=detail)
+
+
+def _message_http_error(exc: MessageError) -> HTTPException:
+    detail = {"message": exc.message}
+    if exc.error_code:
+        detail["error_code"] = exc.error_code
     return HTTPException(status_code=exc.status_code, detail=detail)
 
 
@@ -461,6 +474,54 @@ def list_dashboard_participant_account_actions(
         return AccountActionListResponse(items=[AccountActionRecord(**item) for item in items])
     except AccountError as exc:
         raise _account_http_error(exc) from exc
+
+
+@router.post(
+    "/dashboard/participants/{public_id}/messages",
+    response_model=MessageResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def send_dashboard_participant_message(
+    public_id: str,
+    payload: SendMessageRequest,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+) -> MessageResponse:
+    try:
+        return MessageResponse(**send_participant_message(
+            db,
+            public_id=public_id,
+            researcher=researcher,
+            subject=payload.subject,
+            body=payload.body,
+        ))
+    except MessageError as exc:
+        raise _message_http_error(exc) from exc
+
+
+@router.get("/dashboard/participants/{public_id}/messages", response_model=MessagePage)
+def list_dashboard_participant_messages(
+    public_id: str,
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    _researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+) -> MessagePage:
+    try:
+        items, total = list_researcher_participant_messages(
+            db,
+            public_id=public_id,
+            limit=limit,
+            offset=offset,
+        )
+        return MessagePage(
+            items=[MessageResponse(**item) for item in items],
+            total=total,
+            limit=limit,
+            offset=offset,
+        )
+    except MessageError as exc:
+        raise _message_http_error(exc) from exc
 
 
 @router.post("/datasets/build", response_model=DatasetMetadata, status_code=status.HTTP_201_CREATED)

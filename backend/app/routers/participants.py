@@ -1,6 +1,8 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -9,6 +11,7 @@ from app.models.participant import Participant
 from app.schemas.game import GameDataPayload
 from app.schemas.consent import ConsentStatusResponse, ParticipantConsentSubmitRequest
 from app.schemas.participant import ParticipantMeResponse
+from app.schemas.message import MessagePage, MessageResponse, UnreadCountResponse
 from app.schemas.session import DailySessionRecord, ModuleUpsertRequest, VALID_MODULE_KEYS
 from app.services.game_service import GameDataError, get_participant_game_data, upsert_participant_game_data
 from app.services.consent_service import (
@@ -23,6 +26,12 @@ from app.services.electronic_consent_service import (
     has_current_consent,
 )
 from app.services.procedure_service import build_participant_study_progress
+from app.services.participant_message_service import (
+    MessageError,
+    list_participant_messages,
+    mark_message_read,
+    unread_message_count,
+)
 from app.services.session_service import (
     SessionError,
     abandon_session,
@@ -40,6 +49,13 @@ def _consent_http_error(exc: ConsentError) -> HTTPException:
         status_code=exc.status_code,
         detail={"message": exc.message, "error_code": exc.error_code},
     )
+
+
+def _message_http_error(exc: MessageError) -> HTTPException:
+    detail = {"message": exc.message}
+    if exc.error_code:
+        detail["error_code"] = exc.error_code
+    return HTTPException(status_code=exc.status_code, detail=detail)
 
 
 @router.get("/me/consent-status", response_model=ConsentStatusResponse)
@@ -217,3 +233,50 @@ def upsert_my_game(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to save game data",
         ) from exc
+
+
+@router.get("/me/messages", response_model=MessagePage)
+def list_my_messages(
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    unread_only: bool = Query(default=False),
+    participant: Participant = Depends(get_current_participant),
+    db: Session = Depends(get_db),
+) -> MessagePage:
+    items, total = list_participant_messages(
+        db,
+        participant_id=participant.id,
+        limit=limit,
+        offset=offset,
+        unread_only=unread_only,
+    )
+    return MessagePage(
+        items=[MessageResponse(**item) for item in items],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.get("/me/messages/unread-count", response_model=UnreadCountResponse)
+def get_my_unread_message_count(
+    participant: Participant = Depends(get_current_participant),
+    db: Session = Depends(get_db),
+) -> UnreadCountResponse:
+    return UnreadCountResponse(unread_count=unread_message_count(db, participant_id=participant.id))
+
+
+@router.post("/me/messages/{message_id}/read", response_model=MessageResponse)
+def mark_my_message_read(
+    message_id: UUID,
+    participant: Participant = Depends(get_current_participant),
+    db: Session = Depends(get_db),
+) -> MessageResponse:
+    try:
+        return MessageResponse(**mark_message_read(
+            db,
+            participant_id=participant.id,
+            message_id=message_id,
+        ))
+    except MessageError as exc:
+        raise _message_http_error(exc) from exc

@@ -16,6 +16,10 @@ vi.mock('../../store/research.js', () => ({
   fetchParticipantAccountActions: vi.fn(),
 }));
 
+vi.mock('../../store/consent.js', () => ({
+  downloadAllConsents: vi.fn(),
+}));
+
 const summary = {
   totalParticipants: 2,
   totalSessions: 3,
@@ -97,6 +101,12 @@ describe('ResearcherDashboard', () => {
 
     fireEvent.change(screen.getByLabelText('Search participants'), { target: { value: 'Student One' } });
     await waitFor(() => expect(fetchDashboardParticipants).toHaveBeenCalled());
+  });
+
+  it('shows download all consent forms on participants section without separate tab', async () => {
+    render(<ParticipantsSection />);
+    expect(await screen.findByRole('button', { name: 'Download All Consent Forms' })).toBeInTheDocument();
+    expect(screen.queryByText('Consent Forms')).not.toBeInTheDocument();
   });
 
   it('shows empty and retry states', async () => {

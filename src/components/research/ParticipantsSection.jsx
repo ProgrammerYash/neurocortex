@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { T } from '../../constants/tokens.js';
 import { fetchDashboardParticipantDetail, fetchDashboardParticipants } from '../../store/research.js';
+import { downloadAllConsents } from '../../store/consent.js';
 import Card from '../ui/Card.jsx';
 import Btn from '../ui/Btn.jsx';
 import SectionTitle from '../ui/SectionTitle.jsx';
@@ -27,6 +28,7 @@ const COLUMNS = [
   ['averageSleepHours', 'Avg Sleep', 'average_sleep'],
   ['averageMemoryAccuracy', 'Avg Memory', 'average_memory_accuracy'],
   ['sessionCompletion', 'Session Completion', 'session_completion'],
+  ['consentRecorded', 'Consent', 'consent'],
 ];
 
 function cellValue(row, key) {
@@ -37,6 +39,7 @@ function cellValue(row, key) {
   if (key === 'averageFatigue') return formatScale(row.averageFatigue);
   if (key === 'averageSleepHours') return formatSleep(row.averageSleepHours);
   if (key === 'averageMemoryAccuracy' || key === 'sessionCompletion') return formatPercent(row[key]);
+  if (key === 'consentRecorded') return row.consentRecorded ? 'Recorded' : 'Missing';
   return row[key] ?? '—';
 }
 
@@ -57,7 +60,7 @@ const STATUS_FILTERS = [
   ['removed', 'Removed'],
 ];
 
-export default function ParticipantsSection({ onSummaryRefresh }) {
+export default function ParticipantsSection({ onSummaryRefresh, showToast }) {
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -70,6 +73,7 @@ export default function ParticipantsSection({ onSummaryRefresh }) {
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState('');
   const [compact, setCompact] = useState(() => typeof window !== 'undefined' && window.innerWidth < 900);
+  const [zipBusy, setZipBusy] = useState(false);
   const limit = 20;
 
   useEffect(() => {
@@ -129,13 +133,36 @@ export default function ParticipantsSection({ onSummaryRefresh }) {
     }
   };
 
+  const downloadAll = async () => {
+    setZipBusy(true);
+    try {
+      const blob = await downloadAllConsents();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'neurocortex-consents.zip';
+      anchor.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      showToast?.('Consent archive downloaded.', 'success');
+    } catch (err) {
+      showToast?.(err.message || 'Could not download consent archive.', 'error');
+    } finally {
+      setZipBusy(false);
+    }
+  };
+
   return (
     <Card className="fade-in">
-      <div style={{ marginBottom: 14 }}>
-        <SectionTitle>Participants</SectionTitle>
-        <p style={{ fontSize: 12, color: T.muted, marginTop: 6 }}>
-          View participant activity, assessment averages, and study progress.
-        </p>
+      <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start', flexWrap: 'wrap' }}>
+        <div>
+          <SectionTitle>Participants</SectionTitle>
+          <p style={{ fontSize: 12, color: T.muted, marginTop: 6 }}>
+            View participant activity, assessment averages, and study progress.
+          </p>
+        </div>
+        <Btn disabled={zipBusy} onClick={downloadAll} style={{ fontSize: 12 }}>
+          {zipBusy ? 'Preparing ZIP…' : 'Download All Consent Forms'}
+        </Btn>
       </div>
 
       <input
@@ -193,6 +220,7 @@ export default function ParticipantsSection({ onSummaryRefresh }) {
                 <div>{row.grade} · {row.ageRange}</div>
                 <div>Sessions: {row.sessions} · Completion: {formatPercent(row.sessionCompletion)}</div>
                 <div>Last active: {row.lastActiveDisplay || (row.sessions ? row.joinedDisplay : 'Never active')}</div>
+                <div>Consent: {row.consentRecorded ? 'Recorded' : 'Missing'}</div>
               </div>
               <Btn onClick={() => openDetails(row.participantId)} disabled={detailLoading === row.participantId} style={{ marginTop: 12, fontSize: 12 }}>
                 {detailLoading === row.participantId ? 'Loading…' : 'View Details'}
@@ -257,7 +285,7 @@ export default function ParticipantsSection({ onSummaryRefresh }) {
         <Btn onClick={() => setOffset(offset + limit)} disabled={offset + limit >= total || loading}>Next</Btn>
       </div>
 
-      <ParticipantDetailsPanel detail={detail} onClose={() => setDetail(null)} onRefresh={refreshParticipant} />
+      <ParticipantDetailsPanel detail={detail} onClose={() => setDetail(null)} onRefresh={refreshParticipant} showToast={showToast} />
     </Card>
   );
 }

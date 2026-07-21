@@ -10,6 +10,7 @@ from app.database import get_db
 from app.deps import get_current_researcher
 from app.models.researcher import Researcher
 from app.schemas.consent import ResearcherConsentPage
+from app.services.consent_pdf_service import ConsentPdfError, delivery_pdf_bytes
 from app.services.researcher_consent_service import (
     ResearcherConsentError,
     build_all_consents_zip,
@@ -82,10 +83,13 @@ def view_consent_pdf(
     try:
         record = get_consent(db, consent_id)
         filename = safe_participant_filename(record.participant.public_id)
+        pdf_bytes = delivery_pdf_bytes(record.pdf_bytes)
     except ResearcherConsentError as exc:
         raise _http_error(exc) from exc
+    except ConsentPdfError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
     return Response(
-        content=record.pdf_bytes,
+        content=pdf_bytes,
         media_type="application/pdf",
         headers={
             **PRIVATE_HEADERS,
@@ -103,10 +107,13 @@ def download_consent_pdf(
     try:
         record = get_consent(db, consent_id)
         filename = safe_participant_filename(record.participant.public_id)
+        pdf_bytes = delivery_pdf_bytes(record.pdf_bytes)
     except ResearcherConsentError as exc:
         raise _http_error(exc) from exc
+    except ConsentPdfError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
     return Response(
-        content=record.pdf_bytes,
+        content=pdf_bytes,
         media_type="application/pdf",
         headers={
             **PRIVATE_HEADERS,
