@@ -65,6 +65,7 @@ export function mapApiParticipantToProfile(participant, publicId) {
     petChoice: participant?.pet_choice ?? 'fox',
     consentRequired: participant?.consent_required == null ? undefined : participant.consent_required === true,
     consentRecorded: participant?.consent_recorded == null ? undefined : participant.consent_recorded === true,
+    mustChangePin: participant?.must_change_pin === true,
     joinedAt,
     joinedDate,
   };
@@ -104,6 +105,18 @@ export async function loginWithApi({ publicId, pin }) {
     body: {
       public_id: publicId,
       pin,
+    },
+  });
+  setToken(data.access_token);
+  return data;
+}
+
+export async function changePinWithApi({ pin, pinConfirmation }) {
+  const data = await apiRequest('/v1/auth/participant/change-pin', {
+    method: 'POST',
+    body: {
+      pin,
+      pin_confirmation: pinConfirmation,
     },
   });
   setToken(data.access_token);

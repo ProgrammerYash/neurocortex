@@ -30,12 +30,13 @@ def verify_invite_code(plain_code: str, code_hash: str) -> bool:
     return bcrypt.checkpw(normalized, code_hash.encode("utf-8"))
 
 
-def create_access_token(*, participant_id: UUID, public_id: str) -> str:
+def create_access_token(*, participant_id: UUID, public_id: str, auth_version: int = 1) -> str:
     expire = datetime.now(UTC) + timedelta(minutes=settings.jwt_expire_minutes)
     payload: dict[str, Any] = {
         "sub": str(participant_id),
         "public_id": public_id,
         "role": "participant",
+        "auth_version": auth_version,
         "exp": int(expire.timestamp()),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)

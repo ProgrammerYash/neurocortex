@@ -81,7 +81,7 @@ export default function ResearcherDashboard({ onBack }) {
         ))}
       </div>
 
-      <ParticipantsSection />
+      <ParticipantsSection onSummaryRefresh={load} />
     </div>
   );
 }

@@ -6,12 +6,14 @@ import {
   fetchDashboardParticipantDetail,
   fetchDashboardParticipants,
   fetchDashboardSummary,
+  fetchParticipantAccountActions,
 } from '../../store/research.js';
 
 vi.mock('../../store/research.js', () => ({
   fetchDashboardSummary: vi.fn(),
   fetchDashboardParticipants: vi.fn(),
   fetchDashboardParticipantDetail: vi.fn(),
+  fetchParticipantAccountActions: vi.fn(),
 }));
 
 const summary = {
@@ -53,6 +55,7 @@ describe('ResearcherDashboard', () => {
   beforeEach(() => {
     fetchDashboardSummary.mockResolvedValue(summary);
     fetchDashboardParticipants.mockResolvedValue({ items: [participantRow], total: 1, limit: 20, offset: 0 });
+    fetchParticipantAccountActions.mockResolvedValue({ items: [] });
     fetchDashboardParticipantDetail.mockResolvedValue({
       ...participantRow,
       sessionsStarted: 2,

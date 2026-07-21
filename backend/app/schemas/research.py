@@ -91,3 +91,15 @@ class DashboardParticipantDetail(BaseModel):
     averageSleepHours: float | None = None
     averageMemoryAccuracy: float | None = None
     recentSessions: list[DashboardSessionHistoryRow]
+    isSuspended: bool = False
+    suspendedAt: datetime | None = None
+    suspendedUntil: datetime | None = None
+    suspensionReason: str | None = None
+    suspendedUntilDisplay: str | None = None
+    isDisabled: bool = False
+    disabledAt: datetime | None = None
+    disabledReason: str | None = None
+    isRemoved: bool = False
+    removedAt: datetime | None = None
+    removalReason: str | None = None
+    mustChangePin: bool = False

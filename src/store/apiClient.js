@@ -8,6 +8,9 @@ export class ApiError extends Error {
     this.name = 'ApiError';
     this.status = status;
     this.detail = detail;
+    this.errorCode = detail && typeof detail === 'object' && detail.error_code
+      ? detail.error_code
+      : null;
   }
 }
 
@@ -49,7 +52,7 @@ export async function apiRequest(path, { method = 'GET', body, auth = true } = {
 
   if (!response.ok) {
     const detail = data?.detail;
-    const message = typeof detail === 'string'
+    let message = typeof detail === 'string'
       ? detail
       : detail && typeof detail === 'object' && detail.message
         ? detail.message
@@ -58,6 +61,13 @@ export async function apiRequest(path, { method = 'GET', body, auth = true } = {
         : detail
           ? JSON.stringify(detail)
           : response.statusText || 'Request failed';
+    if (detail && typeof detail === 'object' && detail.error_code === 'ACCOUNT_SUSPENDED' && detail.suspended_until) {
+      try {
+        message = `Your account is temporarily suspended until ${new Date(detail.suspended_until).toLocaleString('en-US', { timeZone: 'America/New_York' })}.`;
+      } catch {
+        // keep server message
+      }
+    }
     throw new ApiError(message, response.status, detail);
   }
 

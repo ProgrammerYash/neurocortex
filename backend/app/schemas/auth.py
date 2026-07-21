@@ -85,6 +85,25 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     public_id: str
+    must_change_pin: bool = False
+
+
+class ChangePinRequest(BaseModel):
+    pin: str = Field(..., min_length=4, max_length=6)
+    pin_confirmation: str = Field(..., min_length=4, max_length=6)
+
+    @field_validator("pin", "pin_confirmation")
+    @classmethod
+    def validate_pin(cls, value: str) -> str:
+        if not value.isdigit():
+            raise ValueError("pin must contain only digits")
+        return value
+
+    @model_validator(mode="after")
+    def validate_match(self) -> "ChangePinRequest":
+        if self.pin != self.pin_confirmation:
+            raise ValueError("PIN confirmation does not match")
+        return self
 
 
 class ParticipantProfile(BaseModel):

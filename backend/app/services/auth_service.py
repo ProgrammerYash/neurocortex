@@ -5,20 +5,30 @@ from sqlalchemy.orm import Session
 from app.models.consent_record import ConsentRecord
 from app.models.participant import Participant
 from app.schemas.auth import (
+    ChangePinRequest,
     ParticipantLoginRequest,
     ParticipantRegisterRequest,
     ParticipantProfile,
     RegisterResponse,
     TokenResponse,
 )
+from app.services.participant_account_service import AccountError, assert_login_allowed, change_participant_pin
 from app.utils.ids import generate_public_id
 from app.utils.security import create_access_token, hash_pin, verify_pin
 
 
 class AuthError(Exception):
-    def __init__(self, message: str, status_code: int = 400):
+    def __init__(
+        self,
+        message: str,
+        status_code: int = 400,
+        error_code: str | None = None,
+        extra: dict | None = None,
+    ):
         self.message = message
         self.status_code = status_code
+        self.error_code = error_code
+        self.extra = extra or {}
         super().__init__(message)
 
 
@@ -77,10 +87,15 @@ def register_participant(db: Session, payload: ParticipantRegisterRequest) -> Re
 
 
 def _register_response(participant: Participant) -> RegisterResponse:
-    token = create_access_token(participant_id=participant.id, public_id=participant.public_id)
+    token = create_access_token(
+        participant_id=participant.id,
+        public_id=participant.public_id,
+        auth_version=participant.auth_version,
+    )
     return RegisterResponse(
         access_token=token,
         public_id=participant.public_id,
+        must_change_pin=participant.must_change_pin,
         participant=ParticipantProfile(
             public_id=participant.public_id,
             grade=participant.grade,
@@ -98,10 +113,54 @@ def login_participant(db: Session, payload: ParticipantLoginRequest) -> TokenRes
     if participant is None or not verify_pin(payload.pin, participant.pin_hash):
         raise AuthError("Invalid public ID or PIN", status_code=401)
 
-    token = create_access_token(participant_id=participant.id, public_id=participant.public_id)
+    try:
+        assert_login_allowed(participant)
+    except AccountError as exc:
+        raise AuthError(
+            exc.message,
+            status_code=exc.status_code,
+            error_code=exc.error_code,
+            extra=exc.extra,
+        ) from exc
+
+    token = create_access_token(
+        participant_id=participant.id,
+        public_id=participant.public_id,
+        auth_version=participant.auth_version,
+    )
     return TokenResponse(
         access_token=token,
         public_id=participant.public_id,
+        must_change_pin=participant.must_change_pin,
+    )
+
+
+def complete_pin_change(db: Session, participant: Participant, payload: ChangePinRequest) -> TokenResponse:
+    try:
+        change_participant_pin(
+            db,
+            participant=participant,
+            new_pin=payload.pin,
+            pin_confirmation=payload.pin_confirmation,
+        )
+    except AccountError as exc:
+        raise AuthError(
+            exc.message,
+            status_code=exc.status_code,
+            error_code=exc.error_code,
+            extra=exc.extra,
+        ) from exc
+
+    db.refresh(participant)
+    token = create_access_token(
+        participant_id=participant.id,
+        public_id=participant.public_id,
+        auth_version=participant.auth_version,
+    )
+    return TokenResponse(
+        access_token=token,
+        public_id=participant.public_id,
+        must_change_pin=False,
     )
 
 

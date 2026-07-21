@@ -26,6 +26,14 @@ from app.schemas.consent import (
     ResearcherConsentEventRequest,
     ResolveAgeConsentCategoryRequest,
 )
+from app.schemas.account import (
+    AccountActionListResponse,
+    AccountActionRecord,
+    AccountActionResponse,
+    AccountReasonRequest,
+    RemoveAccountRequest,
+    SuspendParticipantRequest,
+)
 from app.schemas.research import (
     DashboardParticipantDetail,
     DashboardParticipantsPage,
@@ -95,6 +103,16 @@ from app.services.research_service import (
     list_research_participants,
     list_research_sessions,
 )
+from app.services.participant_account_service import (
+    AccountError,
+    disable_participant,
+    enable_participant,
+    list_account_actions,
+    remove_participant_access,
+    reset_participant_pin,
+    suspend_participant,
+    unsuspend_participant,
+)
 from app.services.researcher_dashboard_service import (
     get_dashboard_participant_detail,
     get_dashboard_summary,
@@ -112,6 +130,14 @@ from app.services.consent_service import (
 from app.services.study_guard import get_study_config
 
 router = APIRouter(prefix="/research", tags=["research"])
+
+
+def _account_http_error(exc: AccountError) -> HTTPException:
+    detail = {"message": exc.message}
+    if exc.error_code:
+        detail["error_code"] = exc.error_code
+    detail.update(exc.extra)
+    return HTTPException(status_code=exc.status_code, detail=detail)
 
 
 @router.get("/study-procedure", response_model=StudyProcedureResponse)
@@ -288,6 +314,7 @@ def get_dashboard_participants(
     search: str | None = Query(default=None, max_length=200),
     sort: str = Query(default="joined"),
     direction: str = Query(default="desc", pattern="^(asc|desc)$"),
+    status: str | None = Query(default=None, alias="status"),
     _researcher: Researcher = Depends(get_current_researcher),
     db: Session = Depends(get_db),
 ) -> DashboardParticipantsPage:
@@ -298,6 +325,7 @@ def get_dashboard_participants(
         search=search,
         sort=sort,
         direction=direction,
+        status_filter=status or "all_current",
     )
     return DashboardParticipantsPage(items=items, total=total, limit=limit, offset=offset)
 
@@ -312,6 +340,127 @@ def get_dashboard_participant_detail_endpoint(
     if detail is None:
         raise HTTPException(status_code=404, detail="Participant not found")
     return DashboardParticipantDetail(**detail)
+
+
+@router.post("/dashboard/participants/{public_id}/suspend", response_model=AccountActionResponse)
+def suspend_dashboard_participant(
+    public_id: str,
+    payload: SuspendParticipantRequest,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+) -> AccountActionResponse:
+    try:
+        return AccountActionResponse(**suspend_participant(
+            db,
+            public_id=public_id,
+            researcher=researcher,
+            duration=payload.duration,
+            reason=payload.reason,
+        ))
+    except AccountError as exc:
+        raise _account_http_error(exc) from exc
+
+
+@router.post("/dashboard/participants/{public_id}/unsuspend", response_model=AccountActionResponse)
+def unsuspend_dashboard_participant(
+    public_id: str,
+    payload: AccountReasonRequest,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+) -> AccountActionResponse:
+    try:
+        return AccountActionResponse(**unsuspend_participant(
+            db,
+            public_id=public_id,
+            researcher=researcher,
+            reason=payload.reason,
+        ))
+    except AccountError as exc:
+        raise _account_http_error(exc) from exc
+
+
+@router.post("/dashboard/participants/{public_id}/reset-pin", response_model=AccountActionResponse)
+def reset_dashboard_participant_pin(
+    public_id: str,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+) -> AccountActionResponse:
+    try:
+        return AccountActionResponse(**reset_participant_pin(
+            db,
+            public_id=public_id,
+            researcher=researcher,
+        ))
+    except AccountError as exc:
+        raise _account_http_error(exc) from exc
+
+
+@router.post("/dashboard/participants/{public_id}/disable", response_model=AccountActionResponse)
+def disable_dashboard_participant(
+    public_id: str,
+    payload: AccountReasonRequest,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+) -> AccountActionResponse:
+    try:
+        return AccountActionResponse(**disable_participant(
+            db,
+            public_id=public_id,
+            researcher=researcher,
+            reason=payload.reason,
+        ))
+    except AccountError as exc:
+        raise _account_http_error(exc) from exc
+
+
+@router.post("/dashboard/participants/{public_id}/enable", response_model=AccountActionResponse)
+def enable_dashboard_participant(
+    public_id: str,
+    payload: AccountReasonRequest,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+) -> AccountActionResponse:
+    try:
+        return AccountActionResponse(**enable_participant(
+            db,
+            public_id=public_id,
+            researcher=researcher,
+            reason=payload.reason,
+        ))
+    except AccountError as exc:
+        raise _account_http_error(exc) from exc
+
+
+@router.post("/dashboard/participants/{public_id}/remove-account", response_model=AccountActionResponse)
+def remove_dashboard_participant_account(
+    public_id: str,
+    payload: RemoveAccountRequest,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+) -> AccountActionResponse:
+    try:
+        return AccountActionResponse(**remove_participant_access(
+            db,
+            public_id=public_id,
+            researcher=researcher,
+            reason=payload.reason,
+            confirmation_public_id=payload.confirmation_public_id,
+        ))
+    except AccountError as exc:
+        raise _account_http_error(exc) from exc
+
+
+@router.get("/dashboard/participants/{public_id}/account-actions", response_model=AccountActionListResponse)
+def list_dashboard_participant_account_actions(
+    public_id: str,
+    _researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+) -> AccountActionListResponse:
+    try:
+        items = list_account_actions(db, public_id=public_id)
+        return AccountActionListResponse(items=[AccountActionRecord(**item) for item in items])
+    except AccountError as exc:
+        raise _account_http_error(exc) from exc
 
 
 @router.post("/datasets/build", response_model=DatasetMetadata, status_code=status.HTTP_201_CREATED)

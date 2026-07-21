@@ -43,12 +43,14 @@ export async function fetchDashboardParticipants({
   search = '',
   sort = 'joined',
   direction = 'desc',
+  status = 'all_current',
 } = {}) {
   const params = new URLSearchParams({
     limit: String(limit),
     offset: String(offset),
     sort,
     direction,
+    status,
   });
   if (search.trim()) params.set('search', search.trim());
   return apiRequest(`/v1/research/dashboard/participants?${params.toString()}`);
@@ -56,6 +58,52 @@ export async function fetchDashboardParticipants({
 
 export async function fetchDashboardParticipantDetail(publicId) {
   return apiRequest(`/v1/research/dashboard/participants/${encodeURIComponent(publicId)}`);
+}
+
+export async function fetchParticipantAccountActions(publicId) {
+  return apiRequest(`/v1/research/dashboard/participants/${encodeURIComponent(publicId)}/account-actions`);
+}
+
+export async function suspendParticipantAccount(publicId, { duration, reason }) {
+  return apiRequest(`/v1/research/dashboard/participants/${encodeURIComponent(publicId)}/suspend`, {
+    method: 'POST',
+    body: { duration, reason },
+  });
+}
+
+export async function unsuspendParticipantAccount(publicId, { reason }) {
+  return apiRequest(`/v1/research/dashboard/participants/${encodeURIComponent(publicId)}/unsuspend`, {
+    method: 'POST',
+    body: { reason },
+  });
+}
+
+export async function resetParticipantPin(publicId) {
+  return apiRequest(`/v1/research/dashboard/participants/${encodeURIComponent(publicId)}/reset-pin`, {
+    method: 'POST',
+    body: {},
+  });
+}
+
+export async function disableParticipantAccount(publicId, { reason }) {
+  return apiRequest(`/v1/research/dashboard/participants/${encodeURIComponent(publicId)}/disable`, {
+    method: 'POST',
+    body: { reason },
+  });
+}
+
+export async function enableParticipantAccount(publicId, { reason }) {
+  return apiRequest(`/v1/research/dashboard/participants/${encodeURIComponent(publicId)}/enable`, {
+    method: 'POST',
+    body: { reason },
+  });
+}
+
+export async function removeParticipantAccount(publicId, { reason, confirmationPublicId }) {
+  return apiRequest(`/v1/research/dashboard/participants/${encodeURIComponent(publicId)}/remove-account`, {
+    method: 'POST',
+    body: { reason, confirmation_public_id: confirmationPublicId },
+  });
 }
 
 export async function buildResearchDataset(name, datasetMode = 'strict') {

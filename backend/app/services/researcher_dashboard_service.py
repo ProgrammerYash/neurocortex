@@ -18,6 +18,11 @@ from app.models.participant_consent_event import ParticipantConsentEvent
 from app.schemas.session import CORE_MODULE_KEYS
 from app.services.consent_content import CONSENT_VERSION
 from app.services.consent_service import WITHDRAWAL_EVENT_TYPES
+from app.services.participant_account_service import (
+    account_state_payload,
+    matches_status_filter,
+    resolve_display_status,
+)
 from app.services.data_quality_service import IMPOSSIBLE_REACTION_MS
 from app.services.study_guard import apply_participant_filter, is_synthetic_public_id
 
@@ -40,7 +45,7 @@ SORT_FIELDS = frozenset(
         "guardian_name",
     }
 )
-STATUS_ORDER = {"Withdrawn": 0, "Active": 1, "Inactive": 2}
+STATUS_ORDER = {"Removed": 0, "Disabled": 1, "Suspended": 2, "Withdrawn": 3, "Active": 4, "Inactive": 5}
 
 
 def format_study_date(value: datetime | date) -> str:
@@ -271,22 +276,18 @@ def _load_sessions_by_participant(db: Session, participant_ids: list[UUID]) -> d
 
 
 def _participant_status(
+    participant: Participant,
     *,
     withdrawal_status: str | None,
     last_active_at: datetime | None,
     sessions_started: int,
 ) -> str:
-    if withdrawal_status == "withdrawn":
-        return "Withdrawn"
-    if last_active_at is not None:
-        now = datetime.now(UTC)
-        if last_active_at.tzinfo is None:
-            last_active_at = last_active_at.replace(tzinfo=UTC)
-        if now - last_active_at <= timedelta(days=7):
-            return "Active"
-    if sessions_started > 0:
-        return "Inactive"
-    return "Inactive"
+    return resolve_display_status(
+        participant,
+        withdrawal_status=withdrawal_status,
+        last_active_at=last_active_at,
+        sessions_started=sessions_started,
+    )
 
 
 def _base_participant_query(db: Session, search: str | None):
@@ -324,6 +325,7 @@ def _build_participant_row(
     student_name = consent.participant_printed_name if consent else None
     guardian_name = consent.guardian_printed_name if consent else None
     status = _participant_status(
+        participant,
         withdrawal_status=withdrawal_status,
         last_active_at=metrics["last_active_at"],
         sessions_started=metrics["sessions_started"],
@@ -462,7 +464,8 @@ def _strip_internal(row: dict[str, Any]) -> dict[str, Any]:
 def get_dashboard_summary(db: Session) -> dict[str, Any]:
     participants = db.execute(_base_participant_query(db, None)).scalars().all()
     rows = _compute_rows(db, participants)
-    return _summary_from_rows(rows)
+    visible_rows = [row for row in rows if row["status"] != "Removed"]
+    return _summary_from_rows(visible_rows)
 
 
 def list_dashboard_participants(
@@ -473,6 +476,7 @@ def list_dashboard_participants(
     search: str | None,
     sort: str,
     direction: str,
+    status_filter: str | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     if sort not in SORT_FIELDS:
         sort = "joined"
@@ -481,6 +485,10 @@ def list_dashboard_participants(
 
     participants = db.execute(_base_participant_query(db, search)).scalars().all()
     rows = [_strip_internal(row) for row in _sort_rows(_compute_rows(db, participants), sort, direction)]
+    if status_filter:
+        rows = [row for row in rows if matches_status_filter(row["status"], status_filter)]
+    else:
+        rows = [row for row in rows if matches_status_filter(row["status"], "all_current")]
     total = len(rows)
     page = rows[offset : offset + limit]
     return page, total
@@ -498,8 +506,10 @@ def get_dashboard_participant_detail(db: Session, public_id: str) -> dict[str, A
         return None
     row = _strip_internal(rows[0])
     metrics = rows[0]["_metrics"]
+    account = account_state_payload(participant)
     return {
         **row,
+        **account,
         "sessionsStarted": metrics["sessions_started"],
         "sessionsCompleted": metrics["sessions_completed"],
         "recentSessions": [

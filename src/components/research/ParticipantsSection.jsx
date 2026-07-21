@@ -42,15 +42,27 @@ function cellValue(row, key) {
 
 function statusColor(status) {
   if (status === 'Active') return T.green;
-  if (status === 'Withdrawn') return T.red;
+  if (status === 'Withdrawn' || status === 'Removed' || status === 'Disabled') return T.red;
+  if (status === 'Suspended') return T.orange;
   return T.muted;
 }
 
-export default function ParticipantsSection() {
+const STATUS_FILTERS = [
+  ['all_current', 'All current'],
+  ['active', 'Active'],
+  ['inactive', 'Inactive'],
+  ['suspended', 'Suspended'],
+  ['disabled', 'Disabled'],
+  ['withdrawn', 'Withdrawn'],
+  ['removed', 'Removed'],
+];
+
+export default function ParticipantsSection({ onSummaryRefresh }) {
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all_current');
   const [sort, setSort] = useState('joined');
   const [direction, setDirection] = useState('desc');
   const [loading, setLoading] = useState(true);
@@ -69,7 +81,7 @@ export default function ParticipantsSection() {
   const load = () => {
     setLoading(true);
     setError('');
-    return fetchDashboardParticipants({ limit, offset, search, sort, direction })
+    return fetchDashboardParticipants({ limit, offset, search, sort, direction, status: statusFilter })
       .then(data => {
         setItems(Array.isArray(data.items) ? data.items : []);
         setTotal(Number(data.total) || 0);
@@ -81,7 +93,7 @@ export default function ParticipantsSection() {
   useEffect(() => {
     const timer = setTimeout(load, search ? 250 : 0);
     return () => clearTimeout(timer);
-  }, [offset, search, sort, direction]);
+  }, [offset, search, sort, direction, statusFilter]);
 
   const pageLabel = useMemo(() => {
     if (!total) return '0 participants';
@@ -95,6 +107,14 @@ export default function ParticipantsSection() {
       setDirection('asc');
     }
     setOffset(0);
+  };
+
+  const refreshParticipant = async participantId => {
+    await load();
+    if (detail?.participantId === participantId) {
+      setDetail(await fetchDashboardParticipantDetail(participantId));
+    }
+    if (onSummaryRefresh) await onSummaryRefresh();
   };
 
   const openDetails = async participantId => {
@@ -128,6 +148,23 @@ export default function ParticipantsSection() {
         }}
         style={{ marginBottom: 12 }}
       />
+
+      <label style={{ display: 'block', fontSize: 12, color: T.muted, marginBottom: 12 }}>
+        Status filter
+        <select
+          aria-label="Status filter"
+          value={statusFilter}
+          onChange={event => {
+            setStatusFilter(event.target.value);
+            setOffset(0);
+          }}
+          style={{ display: 'block', width: '100%', marginTop: 6 }}
+        >
+          {STATUS_FILTERS.map(([value, label]) => (
+            <option key={value} value={value}>{label}</option>
+          ))}
+        </select>
+      </label>
 
       {error && (
         <div style={{ marginBottom: 12 }}>
@@ -220,7 +257,7 @@ export default function ParticipantsSection() {
         <Btn onClick={() => setOffset(offset + limit)} disabled={offset + limit >= total || loading}>Next</Btn>
       </div>
 
-      <ParticipantDetailsPanel detail={detail} onClose={() => setDetail(null)} />
+      <ParticipantDetailsPanel detail={detail} onClose={() => setDetail(null)} onRefresh={refreshParticipant} />
     </Card>
   );
 }

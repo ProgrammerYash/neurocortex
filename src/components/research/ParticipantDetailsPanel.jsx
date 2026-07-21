@@ -21,13 +21,17 @@ export function formatPercent(value) {
   return dash(value) === '—' ? '—' : `${Number(value).toFixed(1)}%`;
 }
 
+import ParticipantAccountManagement from './ParticipantAccountManagement.jsx';
+
 function statusColor(status) {
   if (status === 'Active') return T.green;
-  if (status === 'Withdrawn') return T.red;
+  if (status === 'Withdrawn' || status === 'Removed') return T.red;
+  if (status === 'Suspended') return T.orange;
+  if (status === 'Disabled') return T.red;
   return T.muted;
 }
 
-export default function ParticipantDetailsPanel({ detail, onClose }) {
+export default function ParticipantDetailsPanel({ detail, onClose, onRefresh }) {
   if (!detail) return null;
   return (
     <div
@@ -120,6 +124,13 @@ export default function ParticipantDetailsPanel({ detail, onClose }) {
             </div>
           )}
         </section>
+
+        <ParticipantAccountManagement
+          detail={detail}
+          onUpdated={async () => {
+            if (onRefresh) await onRefresh(detail.participantId);
+          }}
+        />
       </div>
     </div>
   );

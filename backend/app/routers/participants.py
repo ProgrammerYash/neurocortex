@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.deps import get_current_participant
+from app.deps import get_current_participant, get_current_participant_allow_pin_change
 from app.models.participant import Participant
 from app.schemas.game import GameDataPayload
 from app.schemas.consent import ConsentStatusResponse, ParticipantConsentSubmitRequest
@@ -93,12 +93,14 @@ def request_my_data_deletion(
 
 @router.get("/me", response_model=ParticipantMeResponse)
 def get_me(
-    participant: Participant = Depends(get_current_participant),
+    participant: Participant = Depends(get_current_participant_allow_pin_change),
     db: Session = Depends(get_db),
 ) -> ParticipantMeResponse:
+    consent = build_consent_status(db, participant)
     return ParticipantMeResponse.from_participant(
         participant,
         consent_recorded=has_current_consent(db, participant.id),
+        withdrawal_status=consent.get("withdrawal_status"),
     )
 
 

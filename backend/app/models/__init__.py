@@ -16,12 +16,14 @@ from app.models.ml_model import MLModel
 from app.models.ml_prediction import MLPrediction
 from app.models.module_result import ModuleResult
 from app.models.participant import Participant
+from app.models.participant_account_action import ParticipantAccountAction
 from app.models.participant_game_data import ParticipantGameData
 from app.models.researcher import Researcher
 from app.models.researcher_invite import ResearcherInvite
 
 __all__ = [
     "Participant",
+    "ParticipantAccountAction",
     "DailySession",
     "ModuleResult",
     "ParticipantGameData",
