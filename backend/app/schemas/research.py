@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -18,3 +20,74 @@ class ResearchStatsResponse(BaseModel):
     total_sessions: int
     completion_rate: float
     average_module_completion: float
+
+
+class DashboardSummaryResponse(BaseModel):
+    totalParticipants: int
+    totalSessions: int
+    activeParticipants7d: int
+    averageSessionCompletion: float | None = None
+    averageReactionTimeMs: float | None = None
+    averageStress: float | None = None
+    averageFatigue: float | None = None
+    averageSleepHours: float | None = None
+    averageMemoryAccuracy: float | None = None
+
+
+class DashboardParticipantRow(BaseModel):
+    participantId: str
+    studentName: str | None = None
+    guardianName: str | None = None
+    grade: str
+    ageRange: str
+    joinedAt: datetime
+    joinedDisplay: str
+    sessions: int
+    lastActiveAt: datetime | None = None
+    lastActiveDisplay: str | None = None
+    status: str
+    averageReactionTimeMs: float | None = None
+    averageStress: float | None = None
+    averageFatigue: float | None = None
+    averageSleepHours: float | None = None
+    averageMemoryAccuracy: float | None = None
+    sessionCompletion: float | None = None
+
+
+class DashboardParticipantsPage(BaseModel):
+    items: list[DashboardParticipantRow]
+    total: int
+    limit: int
+    offset: int
+
+
+class DashboardSessionHistoryRow(BaseModel):
+    date: str
+    reactionCompleted: bool
+    typingCompleted: bool
+    memoryCompleted: bool
+    attentionCompleted: bool
+    surveyCompleted: bool
+    complete: bool
+
+
+class DashboardParticipantDetail(BaseModel):
+    participantId: str
+    studentName: str | None = None
+    guardianName: str | None = None
+    grade: str
+    ageRange: str
+    joinedAt: datetime
+    joinedDisplay: str
+    status: str
+    sessionsStarted: int
+    sessionsCompleted: int
+    sessionCompletion: float | None = None
+    lastActiveAt: datetime | None = None
+    lastActiveDisplay: str | None = None
+    averageReactionTimeMs: float | None = None
+    averageStress: float | None = None
+    averageFatigue: float | None = None
+    averageSleepHours: float | None = None
+    averageMemoryAccuracy: float | None = None
+    recentSessions: list[DashboardSessionHistoryRow]

@@ -26,7 +26,13 @@ from app.schemas.consent import (
     ResearcherConsentEventRequest,
     ResolveAgeConsentCategoryRequest,
 )
-from app.schemas.research import ResearchParticipantRecord, ResearchStatsResponse
+from app.schemas.research import (
+    DashboardParticipantDetail,
+    DashboardParticipantsPage,
+    DashboardSummaryResponse,
+    ResearchParticipantRecord,
+    ResearchStatsResponse,
+)
 from app.schemas.session import DailySessionRecord
 from app.schemas.procedure import (
     DataQualityDashboardResponse,
@@ -88,6 +94,11 @@ from app.services.research_service import (
     get_research_stats,
     list_research_participants,
     list_research_sessions,
+)
+from app.services.researcher_dashboard_service import (
+    get_dashboard_participant_detail,
+    get_dashboard_summary,
+    list_dashboard_participants,
 )
 from app.services.consent_service import (
     ConsentError,
@@ -260,6 +271,47 @@ def get_research_stats_endpoint(
     db: Session = Depends(get_db),
 ) -> ResearchStatsResponse:
     return get_research_stats(db)
+
+
+@router.get("/dashboard/summary", response_model=DashboardSummaryResponse)
+def get_dashboard_summary_endpoint(
+    _researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+) -> DashboardSummaryResponse:
+    return DashboardSummaryResponse(**get_dashboard_summary(db))
+
+
+@router.get("/dashboard/participants", response_model=DashboardParticipantsPage)
+def get_dashboard_participants(
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    search: str | None = Query(default=None, max_length=200),
+    sort: str = Query(default="joined"),
+    direction: str = Query(default="desc", pattern="^(asc|desc)$"),
+    _researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+) -> DashboardParticipantsPage:
+    items, total = list_dashboard_participants(
+        db,
+        limit=limit,
+        offset=offset,
+        search=search,
+        sort=sort,
+        direction=direction,
+    )
+    return DashboardParticipantsPage(items=items, total=total, limit=limit, offset=offset)
+
+
+@router.get("/dashboard/participants/{public_id}", response_model=DashboardParticipantDetail)
+def get_dashboard_participant_detail_endpoint(
+    public_id: str,
+    _researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+) -> DashboardParticipantDetail:
+    detail = get_dashboard_participant_detail(db, public_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Participant not found")
+    return DashboardParticipantDetail(**detail)
 
 
 @router.post("/datasets/build", response_model=DatasetMetadata, status_code=status.HTTP_201_CREATED)

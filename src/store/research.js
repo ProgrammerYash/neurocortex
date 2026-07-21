@@ -33,6 +33,31 @@ export async function fetchResearchStats() {
   return apiRequest('/v1/research/stats');
 }
 
+export async function fetchDashboardSummary() {
+  return apiRequest('/v1/research/dashboard/summary');
+}
+
+export async function fetchDashboardParticipants({
+  limit = 20,
+  offset = 0,
+  search = '',
+  sort = 'joined',
+  direction = 'desc',
+} = {}) {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+    sort,
+    direction,
+  });
+  if (search.trim()) params.set('search', search.trim());
+  return apiRequest(`/v1/research/dashboard/participants?${params.toString()}`);
+}
+
+export async function fetchDashboardParticipantDetail(publicId) {
+  return apiRequest(`/v1/research/dashboard/participants/${encodeURIComponent(publicId)}`);
+}
+
 export async function buildResearchDataset(name, datasetMode = 'strict') {
   return apiRequest('/v1/research/datasets/build', {
     method: 'POST',
