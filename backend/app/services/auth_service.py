@@ -106,6 +106,24 @@ def _register_response(participant: Participant) -> RegisterResponse:
     )
 
 
+def recent_participant_status(db: Session, public_ids: list[str]) -> list[dict[str, object]]:
+    if not public_ids:
+        return []
+    rows = db.execute(
+        select(Participant.public_id, Participant.removed_at).where(
+            Participant.public_id.in_(public_ids)
+        )
+    ).all()
+    by_id = {public_id: removed_at for public_id, removed_at in rows}
+    return [
+        {
+            "public_id": pid,
+            "recent_eligible": pid in by_id and by_id[pid] is None,
+        }
+        for pid in public_ids
+    ]
+
+
 def login_participant(db: Session, payload: ParticipantLoginRequest) -> TokenResponse:
     participant = db.execute(
         select(Participant).where(Participant.public_id == payload.public_id)

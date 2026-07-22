@@ -138,3 +138,12 @@ export async function loginResearcherWithApi({ inviteCode }) {
   setToken(data.access_token);
   return data;
 }
+
+export async function fetchRecentParticipantStatus(publicIds) {
+  const data = await apiRequest('/v1/auth/participant/recent-status', {
+    method: 'POST',
+    auth: false,
+    body: { public_ids: publicIds },
+  });
+  return Array.isArray(data?.participants) ? data.participants : [];
+}

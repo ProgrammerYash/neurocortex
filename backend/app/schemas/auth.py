@@ -118,3 +118,35 @@ class ParticipantProfile(BaseModel):
 
 class RegisterResponse(TokenResponse):
     participant: ParticipantProfile
+
+
+class RecentParticipantStatusRequest(BaseModel):
+    public_ids: list[str] = Field(default_factory=list)
+
+    @field_validator("public_ids")
+    @classmethod
+    def normalize_ids(cls, values: list[str]) -> list[str]:
+        cleaned: list[str] = []
+        seen: set[str] = set()
+        for value in values:
+            if not isinstance(value, str):
+                continue
+            pid = value.strip().upper()
+            if not pid or pid in seen:
+                continue
+            if len(pid) > 32 or not pid.startswith("NC-"):
+                continue
+            seen.add(pid)
+            cleaned.append(pid)
+            if len(cleaned) >= 20:
+                break
+        return cleaned
+
+
+class RecentParticipantStatusItem(BaseModel):
+    public_id: str
+    recent_eligible: bool
+
+
+class RecentParticipantStatusResponse(BaseModel):
+    participants: list[RecentParticipantStatusItem]

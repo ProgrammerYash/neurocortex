@@ -8,10 +8,19 @@ from app.schemas.auth import (
     ChangePinRequest,
     ParticipantLoginRequest,
     ParticipantRegisterRequest,
+    RecentParticipantStatusRequest,
+    RecentParticipantStatusResponse,
+    RecentParticipantStatusItem,
     RegisterResponse,
     TokenResponse,
 )
-from app.services.auth_service import AuthError, complete_pin_change, login_participant, register_participant
+from app.services.auth_service import (
+    AuthError,
+    complete_pin_change,
+    login_participant,
+    recent_participant_status,
+    register_participant,
+)
 from app.services.consent_service import ConsentError
 
 
@@ -46,6 +55,17 @@ def register(payload: ParticipantRegisterRequest, db: Session = Depends(get_db))
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Registration failed",
         ) from exc
+
+
+@router.post("/recent-status", response_model=RecentParticipantStatusResponse)
+def participant_recent_status(
+    payload: RecentParticipantStatusRequest,
+    db: Session = Depends(get_db),
+) -> RecentParticipantStatusResponse:
+    items = recent_participant_status(db, payload.public_ids)
+    return RecentParticipantStatusResponse(
+        participants=[RecentParticipantStatusItem(**item) for item in items]
+    )
 
 
 @router.post("/login", response_model=TokenResponse)

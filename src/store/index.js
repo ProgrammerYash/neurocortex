@@ -20,6 +20,7 @@ import {
 } from './sessions.js';
 import { fetchGameData, saveGameData } from './game.js';
 import { initGameData } from './gameData.js';
+import { addRecentParticipant } from './recentParticipants.js';
 
 // ═══════════════════════════════════════════════════════════════════
 // STORE — unified, Firebase-ready storage abstraction
@@ -70,6 +71,9 @@ const Store = (() => {
     if (!p?.id) return;
     addToIndex(p.id);
     write(`nc3_p_${p.id}`, p);
+    if (p.role !== 'researcher') {
+      addRecentParticipant(p);
+    }
   }
 
   function _getSessionsLocal(id) {

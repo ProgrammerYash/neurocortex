@@ -1,21 +1,28 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import PublicHome from './PublicHome.jsx';
+import RegisterScreen from '../auth/RegisterScreen.jsx';
+import ResearcherSignInScreen from '../auth/ResearcherSignInScreen.jsx';
+import { sectionNav, workInProgressLabel } from '../../content/presentationContent.js';
 import { allRequiredVerbatimStrings } from '../../content/presentationContent.js';
+import { ROUTES } from '../../routing/routePaths.js';
 
-function renderHome(overrides = {}) {
-  const onJoinStudy = vi.fn();
-  const onSignIn = vi.fn();
-  const onResearcherAccess = vi.fn();
-  render(
-    <PublicHome
-      onJoinStudy={onJoinStudy}
-      onSignIn={onSignIn}
-      onResearcherAccess={onResearcherAccess}
-      {...overrides}
-    />,
+const purposeLabels = [
+  'participant data',
+  'digital biomarkers',
+  'AI model',
+  'user information',
+];
+
+function renderAt(path, element) {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <Routes>
+        <Route path="*" element={element} />
+      </Routes>
+    </MemoryRouter>,
   );
-  return { onJoinStudy, onSignIn, onResearcherAccess };
 }
 
 describe('PublicHome presentation content', () => {
@@ -24,7 +31,7 @@ describe('PublicHome presentation content', () => {
   });
 
   it('renders every required verbatim presentation string', () => {
-    renderHome();
+    renderAt('/', <PublicHome />);
     allRequiredVerbatimStrings().forEach(text => {
       const matches = screen.getAllByText((content, node) => {
         const normalized = node?.textContent?.replace(/\s+/g, ' ').trim();
@@ -35,47 +42,80 @@ describe('PublicHome presentation content', () => {
   });
 
   it('repeats closing title-slide credits near the bottom', () => {
-    renderHome();
-    expect(screen.getAllByText('Science Fair Project Presentation').length).toBeGreaterThanOrEqual(2);
+    renderAt('/', <PublicHome />);
+    expect(screen.getAllByText('Science Fair Project').length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText('By Yash Gupta').length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText('Jose Marti STEM Academy').length).toBeGreaterThanOrEqual(2);
   });
 
   it('omits forbidden placeholder and branding text', () => {
-    renderHome();
-    expect(screen.queryByText('More Info')).not.toBeInTheDocument();
+    renderAt('/', <PublicHome />);
+    expect(screen.queryByText('Science Fair Project Presentation')).not.toBeInTheDocument();
+    expect(screen.queryByText('AGENDA')).not.toBeInTheDocument();
+    expect(screen.queryByText('2.Computer - HP EliteBook 840 G3')).not.toBeInTheDocument();
     expect(screen.queryByText(/lorem ipsum/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/ISEF Longitudinal Research Platform/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('01')).not.toBeInTheDocument();
   });
 
-  it('shows primary call-to-action buttons', () => {
-    renderHome();
-    expect(screen.getAllByRole('button', { name: 'Join the Study' }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('button', { name: 'Participant Sign In' }).length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: 'Explore the Research' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Back to Top' })).toBeInTheDocument();
+  it('shows Work in Progress panels and procedure phases', () => {
+    renderAt('/', <PublicHome />);
+    expect(screen.getAllByText(workInProgressLabel).length).toBeGreaterThanOrEqual(3);
+    ['Phase 1', 'Phase 2', 'Phase 3', 'Phase 4', 'Phase 5'].forEach(label => {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    });
+    expect(screen.getByText('CURRENT PHASE')).toBeInTheDocument();
+    expect(screen.getByText('2. Computer - HP EliteBook 840 G3')).toBeInTheDocument();
+    expect(document.querySelector('.problem-card--wide')).toBeTruthy();
+    expect(document.querySelector('.home-hero-brain')).toBeTruthy();
+    expect(document.querySelector('.home-purpose-flow')).toBeTruthy();
+    purposeLabels.forEach(label => {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    });
   });
 
-  it('routes Join the Study and Participant Sign In to existing flows', () => {
-    const { onJoinStudy, onSignIn } = renderHome();
-    fireEvent.click(screen.getAllByRole('button', { name: 'Join the Study' })[0]);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Participant Sign In' })[0]);
-    expect(onJoinStudy).toHaveBeenCalled();
-    expect(onSignIn).toHaveBeenCalled();
+  it('does not render duplicate section eyebrow labels', () => {
+    renderAt('/', <PublicHome />);
+    expect(screen.queryByClassName?.('home-section__label')).toBeUndefined();
+    expect(document.querySelectorAll('.home-section__label')).toHaveLength(0);
+  });
+
+  it('renders navbar links in required order', () => {
+    renderAt('/', <PublicHome />);
+    const sectionRow = document.querySelector('.home-navbar__sections-scroll');
+    expect(sectionRow).toBeTruthy();
+    const labels = within(sectionRow).getAllByRole('link').map(link => link.textContent);
+    expect(labels).toEqual(sectionNav.map(item => item.label));
   });
 
   it('opens and closes the mobile menu', () => {
-    renderHome();
+    renderAt('/', <PublicHome />);
     fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
     expect(screen.getByRole('button', { name: 'Close menu' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('navigation', { name: 'Mobile' }).querySelector('a[href="#home"]'));
+    fireEvent.click(screen.getByRole('navigation', { name: 'Mobile' }).querySelector('a[href="/"]'));
     expect(screen.queryByRole('button', { name: 'Close menu' })).not.toBeInTheDocument();
   });
+});
 
-  it('shows four future-work numbers only inside numbered cards', () => {
-    renderHome();
-    ['01', '02', '03', '04'].forEach(number => {
-      expect(screen.getByText(number)).toBeInTheDocument();
-    });
+describe('Researcher access routing UI', () => {
+  afterEach(() => cleanup());
+
+  it('shows researcher login without participant registration at /researcher/sign-in', () => {
+    renderAt(
+      ROUTES.researcherSignIn,
+      <ResearcherSignInScreen onLogin={vi.fn()} />,
+    );
+    expect(screen.getByText('Researcher sign-in')).toBeInTheDocument();
+    expect(screen.queryByText('Join the Study')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Participant/i })).not.toBeInTheDocument();
+  });
+
+  it('join route shows registration wizard not researcher toggle', () => {
+    renderAt(
+      ROUTES.join,
+      <RegisterScreen onRegister={vi.fn()} showToast={vi.fn()} />,
+    );
+    expect(screen.getByText(/Join the Study/i)).toBeInTheDocument();
+    expect(screen.queryByText('Researcher sign-in')).not.toBeInTheDocument();
   });
 });

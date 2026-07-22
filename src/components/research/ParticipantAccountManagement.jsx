@@ -10,6 +10,7 @@ import {
   suspendParticipantAccount,
   unsuspendParticipantAccount,
 } from '../../store/research.js';
+import { removeRecentParticipant } from '../../store/recentParticipants.js';
 
 const DURATIONS = [
   ['24_hours', '24 hours'],
@@ -216,10 +217,13 @@ export default function ParticipantAccountManagement({ detail, onUpdated }) {
           </LabelRow>
           <Btn
             disabled={busy || reason.trim().length < 3 || confirmId !== detail.participantId}
-            onClick={() => runAction(() => removeParticipantAccount(detail.participantId, {
-              reason: reason.trim(),
-              confirmationPublicId: confirmId,
-            }))}
+            onClick={() => runAction(async () => {
+              await removeParticipantAccount(detail.participantId, {
+                reason: reason.trim(),
+                confirmationPublicId: confirmId,
+              });
+              removeRecentParticipant(detail.participantId);
+            })}
             style={{ color: T.red, borderColor: T.red, marginTop: 10 }}
           >
             {busy ? 'Removing…' : 'Remove account access'}

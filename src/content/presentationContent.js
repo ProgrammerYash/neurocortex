@@ -1,11 +1,11 @@
 /**
- * Verbatim presentation content for the NeuroCortex public homepage.
- * Wording must match the approved presentation exactly — do not edit here without source approval.
+ * Presentation content for the NeuroCortex public homepage.
+ * Scientific wording matches the approved presentation except user-approved Phase 5B overrides.
  */
 
 // PAGE 1 — OPENING (also PAGE 13 — CLOSING)
 export const openingSlide = {
-  kicker: 'Science Fair Project Presentation',
+  kicker: 'Science Fair Project',
   title:
     'NeuroCortex: A predictive model capable of detecting cognitive overload and burnout early using passive digital biomarkers and personalized AI models',
   author: 'By Yash Gupta',
@@ -26,7 +26,6 @@ export const hypothesis = {
 
 // PAGES 4–5 — BACKGROUND INFORMATION
 export const backgroundInformation = {
-  agenda: 'AGENDA',
   heading: 'BACKGROUND INFORMATION',
   paragraphs: [
     'Researchers found that continuously collected smartphone behavior can be used to build personalized models that predict changes in mood and mental health over long periods, highlighting the value of individualized digital biomarkers for early detection.',
@@ -52,13 +51,19 @@ export const problem = {
 export const purpose = {
   heading: 'PURPOSE',
   text: 'The purpose of this project is to detect cognitive overload and stress burnout days before the detection of noticeable symptoms appear. An AI model was developed to supply information to users and was trained on data from human participants to ensure the information and numbers are as accurate as possible.',
+  flowStages: [
+    'participant data',
+    'digital biomarkers',
+    'AI model',
+    'user information',
+  ],
 };
 
 // PAGE 8 — MATERIALS
 export const materials = {
   heading: 'MATERIALS',
   humanParticipants: '1. Human Participants',
-  computerTitle: '2.Computer - HP EliteBook 840 G3',
+  computerTitle: '2. Computer - HP EliteBook 840 G3',
   specifications: [
     'Processor: Intel Core i7 6th-Gen (i7-6500U or i7-6600U).',
     'Memory & Storage: Supports up to 32GB DDR4 RAM and fast M.2 NVMe SSDs.',
@@ -70,6 +75,7 @@ export const materials = {
 // PAGE 9 — PROCEDURE
 export const procedure = {
   heading: 'PROCEDURE',
+  phaseLabels: ['Phase 1', 'Phase 2', 'Phase 3', 'Phase 4', 'Phase 5'],
   stages: [
     {
       title: 'Build the App',
@@ -123,7 +129,6 @@ export const procedure = {
 // PAGE 10 — FUTURE WORKS
 export const futureWorks = {
   heading: 'FUTURE WORKS',
-  numbers: ['01', '02', '03', '04'],
 };
 
 // PAGE 11 — CONCLUSION
@@ -145,12 +150,19 @@ export const bibliography = {
 
 export const sectionNav = [
   { id: 'home', label: 'Home' },
-  { id: 'research-question', label: 'Research' },
-  { id: 'background', label: 'Background' },
-  { id: 'procedure', label: 'Method' },
+  { id: 'research-question', label: 'Research Question' },
+  { id: 'hypothesis', label: 'Hypothesis' },
+  { id: 'background', label: 'Background Information' },
+  { id: 'problem', label: 'Problem' },
+  { id: 'purpose', label: 'Purpose' },
+  { id: 'materials', label: 'Materials' },
+  { id: 'procedure', label: 'Procedure' },
   { id: 'future-works', label: 'Future Works' },
-  { id: 'bibliography', label: 'Sources' },
+  { id: 'conclusion', label: 'Conclusion' },
+  { id: 'bibliography', label: 'Bibliography' },
 ];
+
+export const workInProgressLabel = 'Work in Progress';
 
 /** Flat list of required verbatim strings for content-audit tests. */
 export function allRequiredVerbatimStrings() {
@@ -163,7 +175,6 @@ export function allRequiredVerbatimStrings() {
     researchQuestion.text,
     hypothesis.heading,
     hypothesis.text,
-    backgroundInformation.agenda,
     backgroundInformation.heading,
     ...backgroundInformation.paragraphs,
     problem.heading,
@@ -177,7 +188,6 @@ export function allRequiredVerbatimStrings() {
     procedure.heading,
     ...procedure.stages.flatMap(stage => [stage.title, ...stage.steps]),
     futureWorks.heading,
-    ...futureWorks.numbers,
     conclusion.heading,
     bibliography.heading,
     ...bibliography.entries,
