@@ -1,7 +1,7 @@
 export default function WorkInProgressPanel({ size = 'standard', label = 'Work in Progress' }) {
   return (
     <div
-      className={`home-wip-panel home-wip-panel--${size}`}
+      className={`home-wip-panel home-wip-panel--${size} home-card--hover`}
       role="status"
       aria-label={label}
     >

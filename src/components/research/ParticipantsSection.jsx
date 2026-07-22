@@ -20,6 +20,7 @@ const COLUMNS = [
   ['grade', 'Grade', 'grade'],
   ['ageRange', 'Age Range', 'age_range'],
   ['joinedDisplay', 'Joined', 'joined'],
+  ['studyFrequencyLabel', 'Study Schedule', 'joined'],
   ['sessions', 'Sessions', 'sessions'],
   ['lastActiveDisplay', 'Last Active', 'last_active'],
   ['status', 'Status', 'status'],
@@ -221,6 +222,7 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast }) {
                 <div>{row.grade} · {row.ageRange}</div>
                 <div>Sessions: {row.sessions} · Completion: {formatPercent(row.sessionCompletion)}</div>
                 <div>Last active: {row.lastActiveDisplay || (row.sessions ? row.joinedDisplay : 'Never active')}</div>
+                <div>Study Schedule: {row.studyFrequencyLabel || 'Not Selected'}</div>
                 <div>Consent: {row.consentRecorded ? 'Recorded' : 'Missing'}</div>
               </div>
               <Btn onClick={() => openDetails(row.participantId)} disabled={detailLoading === row.participantId} style={{ marginTop: 12, fontSize: 12 }}>

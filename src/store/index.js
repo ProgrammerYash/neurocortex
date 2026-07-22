@@ -124,7 +124,8 @@ const Store = (() => {
       }
 
       const data = await registerWithApi(body);
-      const profile = mapApiParticipantToProfile(data.participant, data.public_id);
+      const me = await fetchCurrentParticipant();
+      const profile = mapApiParticipantToProfile(me, me.public_id);
       cacheParticipant(profile);
       return profile;
     },

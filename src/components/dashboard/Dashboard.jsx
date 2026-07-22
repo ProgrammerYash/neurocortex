@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { T } from '../../constants/tokens.js';
 import Btn from '../ui/Btn.jsx';
 import { fetchUnreadMessageCount } from '../../store/messages.js';
+import { studyFrequencyLabel } from '../../constants/studyFrequency.js';
+import { ROUTES } from '../../routing/routePaths.js';
 import PetBanner from './PetBanner.jsx';
 import TodayTab from './TodayTab.jsx';
 import ProgressTab from './ProgressTab.jsx';
@@ -10,6 +13,7 @@ import { fetchMyConsentStatus } from '../../store/consent.js';
 import { calcBurnout } from '../../utils/burnout.js';
 
 export default function Dashboard({user,sessions,todaySessions,todayComplete,gameData,countdown,onNavigate,onLogout,showToast,unreadCount=0,onUnreadChange}) {
+  const navigate = useNavigate();
   const [tab,setTab]=useState("today");
   const [sessionBlockMessage,setSessionBlockMessage]=useState(null);
   const [localUnread, setLocalUnread] = useState(unreadCount);
@@ -68,7 +72,10 @@ export default function Dashboard({user,sessions,todaySessions,todayComplete,gam
           </div>
           <div style={{fontFamily:T.mono,fontSize:11,color:T.muted,marginTop:2}}>{user?.id}</div>
         </div>
-        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:'wrap',justifyContent:'flex-end'}}>
+          <Btn onClick={() => navigate(ROUTES.participantSettings)} style={{fontSize:12,padding:"7px 12px"}} aria-label="Participant settings">
+            ⚙ Settings
+          </Btn>
           <Btn onClick={() => onNavigate('inbox')} style={{fontSize:12,padding:"7px 12px", position:'relative'}}>
             Inbox
             {localUnread > 0 && (
@@ -128,7 +135,7 @@ export default function Dashboard({user,sessions,todaySessions,todayComplete,gam
         ))}
       </div>
 
-      {tab==="today"&&<TodayTab modules={modules} completed={completed} pct={pct} todayComplete={todayComplete} countdown={countdown} isWeeklyDay={isWeeklyDay} hasNasaTLX={hasNasaTLX} onNavigate={onNavigate} sessionBlockMessage={sessionBlockMessage} cognitiveOverloadIndex={cognitiveOverloadIndex} />}
+      {tab==="today"&&<TodayTab modules={modules} completed={completed} pct={pct} todayComplete={todayComplete} countdown={countdown} isWeeklyDay={isWeeklyDay} hasNasaTLX={hasNasaTLX} onNavigate={onNavigate} sessionBlockMessage={sessionBlockMessage} cognitiveOverloadIndex={cognitiveOverloadIndex} studyScheduleLabel={studyFrequencyLabel(user?.studyFrequency)} />}
       {tab==="progress"&&<ProgressTab sessions={sessions} />}
       {tab==="study"&&<ConsentStatusTab showToast={showToast} />}
       {tab==="neuroverse"&&<div style={{textAlign:"center",padding:"2rem"}}><Btn onClick={()=>onNavigate("neuroverse")} primary style={{padding:"14px 32px"}}>Open NeuroVerse 🌐</Btn><br/><Btn onClick={()=>onNavigate("pet")} style={{marginTop:12,padding:"12px 28px"}}>Pet Home 🏠</Btn><br/><Btn onClick={()=>onNavigate("achievements")} style={{marginTop:12,padding:"12px 28px"}}>Achievements 🏆</Btn></div>}

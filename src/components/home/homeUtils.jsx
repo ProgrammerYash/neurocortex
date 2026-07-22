@@ -30,58 +30,95 @@ export function useReveal() {
 
 export function HeroBrainVisual() {
   return (
-    <div className="home-hero-brain" aria-hidden="true">
-      <svg viewBox="0 0 420 420" role="presentation" className="home-hero-brain__svg">
+    <div className="home-hero-brain-profile" aria-hidden="true">
+      <svg viewBox="0 0 480 420" role="presentation" className="home-hero-brain-profile__svg">
         <defs>
-          <linearGradient id="brainGlow" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#2dd4bf" stopOpacity="0.45" />
-            <stop offset="100%" stopColor="#63b3ed" stopOpacity="0.2" />
+          <linearGradient id="brainProfileGlow" x1="20%" y1="0%" x2="80%" y2="100%">
+            <stop offset="0%" stopColor="#2dd4bf" stopOpacity="0.55" />
+            <stop offset="55%" stopColor="#63b3ed" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="#7c3aed" stopOpacity="0.12" />
           </linearGradient>
-          <filter id="brainSoftGlow" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="6" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
+          <radialGradient id="brainCoreGlow" cx="45%" cy="42%" r="40%">
+            <stop offset="0%" stopColor="#2dd4bf" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="#2dd4bf" stopOpacity="0" />
+          </radialGradient>
         </defs>
-        <ellipse cx="210" cy="210" rx="150" ry="130" fill="url(#brainGlow)" opacity="0.35" />
+        <ellipse cx="230" cy="210" rx="170" ry="150" fill="url(#brainCoreGlow)" />
         <path
-          className="home-hero-brain__outline"
-          d="M210 70 C150 70 110 110 105 165 C95 165 85 185 88 210 C82 235 95 260 115 275 C115 310 150 340 210 345 C270 340 305 310 305 275 C325 260 338 235 332 210 C335 185 325 165 315 165 C310 110 270 70 210 70 Z"
-          fill="rgba(12,18,30,0.85)"
+          className="home-hero-brain-profile__silhouette"
+          d="M120 250 C95 205 98 145 135 105 C165 72 215 58 265 70 C315 82 350 115 365 155 C382 200 372 250 345 285 C315 325 260 350 205 345 C160 341 130 315 120 250 Z"
+          fill="rgba(8,12,22,0.92)"
           stroke="rgba(45,212,191,0.55)"
-          strokeWidth="2"
-          filter="url(#brainSoftGlow)"
+          strokeWidth="2.2"
         />
         <path
-          d="M210 85 L210 330"
+          className="home-hero-brain-profile__lobe"
+          d="M145 120 C175 95 220 88 255 98 C240 130 225 165 205 195 C175 170 155 145 145 120 Z"
+          fill="none"
           stroke="rgba(99,179,237,0.35)"
-          strokeWidth="1.5"
-          strokeDasharray="4 6"
+          strokeWidth="1.2"
         />
-        <g className="home-hero-brain__pathways">
-          <path d="M130 160 Q170 140 210 150 T290 160" fill="none" stroke="rgba(45,212,191,0.4)" strokeWidth="1.2" />
-          <path d="M125 210 Q170 195 210 205 T295 210" fill="none" stroke="rgba(99,179,237,0.35)" strokeWidth="1.2" />
-          <path d="M140 260 Q175 280 210 270 T280 255" fill="none" stroke="rgba(45,212,191,0.35)" strokeWidth="1.2" />
+        <path
+          className="home-hero-brain-profile__lobe"
+          d="M255 98 C295 108 330 135 345 175 C330 205 300 230 265 240 C275 205 278 165 270 130 Z"
+          fill="none"
+          stroke="rgba(45,212,191,0.32)"
+          strokeWidth="1.2"
+        />
+        <path
+          className="home-hero-brain-profile__sulci"
+          d="M155 165 C190 150 230 145 270 155 M150 205 C195 190 240 188 285 200 M165 240 C210 225 255 222 300 235"
+          fill="none"
+          stroke="rgba(45,212,191,0.28)"
+          strokeWidth="1.1"
+        />
+        <g className="home-hero-brain-profile__pathways">
+          <path
+            className="home-hero-brain-profile__signal"
+            d="M170 150 C205 135 240 132 275 145"
+            fill="none"
+            stroke="rgba(45,212,191,0.55)"
+            strokeWidth="1.6"
+            strokeDasharray="6 10"
+          />
+          <path
+            className="home-hero-brain-profile__signal"
+            d="M160 205 C205 192 250 190 295 205"
+            fill="none"
+            stroke="rgba(99,179,237,0.5)"
+            strokeWidth="1.4"
+            strokeDasharray="5 9"
+          />
+          <path
+            className="home-hero-brain-profile__signal"
+            d="M185 250 C225 238 265 236 305 248"
+            fill="none"
+            stroke="rgba(167,139,250,0.45)"
+            strokeWidth="1.3"
+            strokeDasharray="4 8"
+          />
         </g>
         {[
-          [150, 150], [190, 130], [230, 135], [270, 155],
-          [135, 205], [175, 195], [245, 200], [285, 215],
-          [160, 265], [210, 285], [260, 270],
+          [170, 150], [230, 138], [290, 152], [155, 205], [220, 198], [285, 208],
+          [180, 250], [240, 242], [305, 252], [210, 118], [320, 165],
         ].map(([cx, cy], index) => (
-          <g key={index} className="home-hero-brain__node">
-            <circle cx={cx} cy={cy} r="5" fill="#2dd4bf" opacity="0.9" />
-            <circle cx={cx} cy={cy} r="9" fill="none" stroke="rgba(45,212,191,0.35)" strokeWidth="1" />
+          <g key={index} className="home-hero-brain-profile__node">
+            <circle cx={cx} cy={cy} r="5.5" fill="#2dd4bf" />
+            <circle cx={cx} cy={cy} r="10" fill="none" stroke="rgba(45,212,191,0.35)" strokeWidth="1" />
           </g>
         ))}
-        <rect className="home-hero-brain__scan" x="60" y="0" width="300" height="4" rx="2" fill="rgba(99,179,237,0.25)" />
+        <rect className="home-hero-brain-profile__scan" x="110" y="70" width="260" height="3" rx="1.5" fill="rgba(99,179,237,0.35)" />
+        <g className="home-hero-brain-profile__grid" opacity="0.25">
+          {[0, 1, 2, 3, 4].map(row => (
+            <line key={`h-${row}`} x1="120" y1={90 + row * 55} x2="360" y2={90 + row * 55} stroke="rgba(99,179,237,0.18)" />
+          ))}
+        </g>
       </svg>
     </div>
   );
 }
 
-/** @deprecated replaced by HeroBrainVisual in Phase 5B */
+/** @deprecated replaced by profile brain visual in Phase 5C */
 export function HeroVisual() {
   return <HeroBrainVisual />;
 }

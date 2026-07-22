@@ -1,0 +1,108 @@
+.participant-app {
+  --pt-bg: #060910;
+  --pt-surface: #131928;
+  --pt-surface-2: #0e1420;
+  --pt-text: #e2e8f0;
+  --pt-muted: #a0aec0;
+  --pt-border: rgba(99, 179, 237, 0.16);
+  --pt-input-bg: #131928;
+  --pt-accent: #2dd4bf;
+  --pt-focus: rgba(45, 212, 191, 0.45);
+  --pt-track: rgba(255, 255, 255, 0.08);
+  min-height: 100vh;
+  background: var(--pt-bg);
+  color: var(--pt-text);
+}
+
+.participant-app--light {
+  --pt-bg: #eef2f7;
+  --pt-surface: #ffffff;
+  --pt-surface-2: #f7fafc;
+  --pt-text: #1a202c;
+  --pt-muted: #4a5568;
+  --pt-border: rgba(45, 55, 72, 0.14);
+  --pt-input-bg: #ffffff;
+  --pt-accent: #0d9488;
+  --pt-focus: rgba(13, 148, 136, 0.35);
+  --pt-track: rgba(26, 32, 44, 0.08);
+}
+
+.participant-app input,
+.participant-app select,
+.participant-app textarea {
+  background: var(--pt-input-bg) !important;
+  color: var(--pt-text) !important;
+  border-color: var(--pt-border) !important;
+}
+
+.participant-app .participant-card {
+  background: var(--pt-surface);
+  border: 1px solid var(--pt-border);
+  color: var(--pt-text);
+}
+
+.participant-app .participant-muted {
+  color: var(--pt-muted);
+}
+
+.participant-app .participant-accent-text {
+  color: var(--pt-accent);
+}
+
+.participant-app .participant-surface-2 {
+  background: var(--pt-surface-2);
+}
+
+.participant-app .study-frequency-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .participant-app .study-frequency-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.participant-app .study-frequency-option {
+  position: relative;
+  display: block;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--pt-border);
+  background: var(--pt-surface);
+  cursor: pointer;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.participant-app .study-frequency-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.participant-app .study-frequency-option.is-selected {
+  border-color: var(--pt-accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--pt-accent) 35%, transparent);
+}
+
+.participant-app .study-frequency-option__title {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.participant-app .study-frequency-option__meta {
+  display: block;
+  font-size: 12px;
+  color: var(--pt-muted);
+}
+
+.participant-app .study-frequency-option__check {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--pt-accent);
+  font-weight: 600;
+}

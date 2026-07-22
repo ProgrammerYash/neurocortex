@@ -5,6 +5,8 @@ export const ROUTES = {
   participantChangePin: '/participant/change-pin',
   participantConsent: '/participant/consent',
   participantDashboard: '/participant/dashboard',
+  participantSettings: '/participant/settings',
+  participantSchedule: '/participant/schedule',
   participantInbox: '/participant/inbox',
   participantNeuroverse: '/participant/neuroverse',
   participantPet: '/participant/pet',

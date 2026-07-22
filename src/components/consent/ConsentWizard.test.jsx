@@ -31,6 +31,8 @@ describe('ConsentWizard',()=>{
     fireEvent.click(screen.getByLabelText('Guardian acknowledgment'));
     sign(screen.getByLabelText('Guardian signature'));
     fireEvent.click(screen.getByRole('button',{name:/Final Review/}));
+    expect(screen.queryByText(/Consent version/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Survey version/i)).not.toBeInTheDocument();
     const submit=screen.getByRole('button',{name:'Submit Consent'});
     fireEvent.click(submit);fireEvent.click(submit);
     expect(onSubmit).toHaveBeenCalledTimes(1);

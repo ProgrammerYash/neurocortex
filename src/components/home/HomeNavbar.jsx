@@ -76,7 +76,7 @@ export default function HomeNavbar() {
 
   return (
     <>
-      <header className="home-navbar">
+      <header className="home-navbar home-navbar--persistent">
         <div className="home-navbar__shell">
           <div className="home-navbar__row home-navbar__row--top">
             <button type="button" className="home-navbar__brand" onClick={goHome}>
@@ -98,8 +98,10 @@ export default function HomeNavbar() {
             </button>
           </div>
           <nav className="home-navbar__row home-navbar__row--sections" aria-label="Primary">
-            <div className="home-navbar__sections-scroll">
-              {sectionNav.map(item => navLink(item))}
+            <div className="home-navbar__sections-inner">
+              <div className="home-navbar__sections-scroll">
+                {sectionNav.map(item => navLink(item))}
+              </div>
             </div>
           </nav>
         </div>

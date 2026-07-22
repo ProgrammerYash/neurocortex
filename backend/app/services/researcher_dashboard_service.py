@@ -18,6 +18,7 @@ from app.models.participant_consent_event import ParticipantConsentEvent
 from app.schemas.session import CORE_MODULE_KEYS
 from app.services.consent_content import CONSENT_VERSION
 from app.services.consent_service import WITHDRAWAL_EVENT_TYPES
+from app.services.study_frequency import study_frequency_label
 from app.services.participant_account_service import (
     account_state_payload,
     matches_status_filter,
@@ -351,6 +352,8 @@ def _build_participant_row(
         "sessionCompletion": metrics["session_completion"],
         "consentRecorded": consent is not None,
         "consentRecordId": str(consent.id) if consent else None,
+        "studyFrequency": participant.study_frequency,
+        "studyFrequencyLabel": study_frequency_label(participant.study_frequency),
         "_metrics": metrics,
     }
 

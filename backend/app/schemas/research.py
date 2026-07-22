@@ -54,6 +54,8 @@ class DashboardParticipantRow(BaseModel):
     sessionCompletion: float | None = None
     consentRecorded: bool = False
     consentRecordId: str | None = None
+    studyFrequency: str | None = None
+    studyFrequencyLabel: str = "Not Selected"
 
 
 class DashboardParticipantsPage(BaseModel):
@@ -110,3 +112,5 @@ class DashboardParticipantDetail(BaseModel):
     consentVersion: str | None = None
     consentStudentSignedDisplay: str | None = None
     consentGuardianSignedDisplay: str | None = None
+    studyFrequency: str | None = None
+    studyFrequencyLabel: str = "Not Selected"

@@ -1,20 +1,48 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { ROUTES, isParticipantAppPath, isResearcherAppPath } from './routePaths.js';
 
-export function RequireParticipant({ user, children, allowPinChangeOnly = false, allowConsentOnly = false }) {
+function needsStudySchedule(user) {
+  return user?.studyFrequency == null || user?.studyFrequency === '';
+}
+
+export function RequireParticipant({
+  user,
+  children,
+  allowPinChangeOnly = false,
+  allowConsentOnly = false,
+  allowScheduleOnly = false,
+}) {
   const location = useLocation();
   if (!user || user.role !== 'participant') {
     return <Navigate to={ROUTES.participantSignIn} state={{ from: location }} replace />;
   }
   const path = location.pathname;
+  const needsConsent = user.consentRequired === true || user.consentRecorded === false;
+
   if (user.mustChangePin && path !== ROUTES.participantChangePin && !allowPinChangeOnly) {
     return <Navigate to={ROUTES.participantChangePin} replace />;
   }
-  const needsConsent = user.consentRequired === true || user.consentRecorded === false;
   if (!user.mustChangePin && needsConsent && path !== ROUTES.participantConsent && !allowConsentOnly) {
     return <Navigate to={ROUTES.participantConsent} replace />;
   }
-  if (!user.mustChangePin && !needsConsent && (path === ROUTES.participantChangePin || path === ROUTES.participantConsent)) {
+  if (
+    !user.mustChangePin
+    && !needsConsent
+    && needsStudySchedule(user)
+    && path !== ROUTES.participantSchedule
+    && !allowScheduleOnly
+  ) {
+    return <Navigate to={ROUTES.participantSchedule} replace />;
+  }
+  if (!user.mustChangePin && !needsConsent && !needsStudySchedule(user) && path === ROUTES.participantSchedule) {
+    return <Navigate to={ROUTES.participantDashboard} replace />;
+  }
+  if (
+    !user.mustChangePin
+    && !needsConsent
+    && !needsStudySchedule(user)
+    && (path === ROUTES.participantChangePin || path === ROUTES.participantConsent)
+  ) {
     return <Navigate to={ROUTES.participantDashboard} replace />;
   }
   return children;
@@ -33,6 +61,11 @@ export function RequireResearcher({ user, children }) {
 
 export function RedirectIfAuthed({ user, children }) {
   if (user?.role === 'participant') {
+    if (user.mustChangePin) return <Navigate to={ROUTES.participantChangePin} replace />;
+    if (user.consentRequired === true || user.consentRecorded === false) {
+      return <Navigate to={ROUTES.participantConsent} replace />;
+    }
+    if (needsStudySchedule(user)) return <Navigate to={ROUTES.participantSchedule} replace />;
     return <Navigate to={ROUTES.participantDashboard} replace />;
   }
   if (user?.role === 'researcher') {
@@ -53,7 +86,9 @@ export function BlockCrossRole({ user, expectedRole, children }) {
 }
 
 export function participantPathAllowedWithoutFullSession(pathname) {
-  return pathname === ROUTES.participantChangePin || pathname === ROUTES.participantConsent;
+  return pathname === ROUTES.participantChangePin
+    || pathname === ROUTES.participantConsent
+    || pathname === ROUTES.participantSchedule;
 }
 
 export function shouldRestoreSession(pathname) {

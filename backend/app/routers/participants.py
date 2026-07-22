@@ -3,6 +3,7 @@ from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -10,7 +11,7 @@ from app.deps import get_current_participant, get_current_participant_allow_pin_
 from app.models.participant import Participant
 from app.schemas.game import GameDataPayload
 from app.schemas.consent import ConsentStatusResponse, ParticipantConsentSubmitRequest
-from app.schemas.participant import ParticipantMeResponse
+from app.schemas.participant import ParticipantMeResponse, ParticipantPreferencesResponse, ParticipantPreferencesUpdateRequest
 from app.schemas.message import MessagePage, MessageResponse, UnreadCountResponse
 from app.schemas.session import DailySessionRecord, ModuleUpsertRequest, VALID_MODULE_KEYS
 from app.services.game_service import GameDataError, get_participant_game_data, upsert_participant_game_data
@@ -25,6 +26,7 @@ from app.services.electronic_consent_service import (
     complete_existing_participant_consent,
     has_current_consent,
 )
+from app.services.participant_preference_service import ParticipantPreferenceError, update_study_frequency
 from app.services.procedure_service import build_participant_study_progress
 from app.services.participant_message_service import (
     MessageError,
@@ -41,7 +43,10 @@ from app.services.session_service import (
 )
 from app.schemas.procedure import ParticipantStudyProgressResponse
 
+from app.utils.security import decode_access_token
+
 router = APIRouter(prefix="/participants", tags=["participants"])
+preferences_security = HTTPBearer()
 
 
 def _consent_http_error(exc: ConsentError) -> HTTPException:
@@ -118,6 +123,30 @@ def get_me(
         consent_recorded=has_current_consent(db, participant.id),
         withdrawal_status=consent.get("withdrawal_status"),
     )
+
+
+def _preference_http_error(exc: ParticipantPreferenceError) -> HTTPException:
+    return HTTPException(status_code=exc.status_code, detail={"message": str(exc)})
+
+
+@router.patch("/me/preferences", response_model=ParticipantPreferencesResponse)
+def update_my_preferences(
+    payload: ParticipantPreferencesUpdateRequest,
+    participant: Participant = Depends(get_current_participant),
+    credentials: HTTPAuthorizationCredentials = Depends(preferences_security),
+    db: Session = Depends(get_db),
+) -> ParticipantPreferencesResponse:
+    token_payload = decode_access_token(credentials.credentials)
+    try:
+        updated = update_study_frequency(
+            db,
+            participant,
+            study_frequency=payload.study_frequency,
+            token_auth_version=token_payload.get("auth_version"),
+        )
+    except ParticipantPreferenceError as exc:
+        raise _preference_http_error(exc) from exc
+    return ParticipantPreferencesResponse.from_participant(updated)
 
 
 @router.get("/me/sessions", response_model=list[DailySessionRecord])

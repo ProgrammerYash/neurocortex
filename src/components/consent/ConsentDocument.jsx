@@ -30,9 +30,6 @@ export default function ConsentDocument({ consent }) {
           </p>
         </section>
       ))}
-      <p style={{fontSize:11, color:T.muted}}>
-        Consent version {consent?.consent_version} · Survey version {consent?.survey_version}
-      </p>
     </article>
   );
 }

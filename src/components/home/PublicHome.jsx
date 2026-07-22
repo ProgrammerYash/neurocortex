@@ -69,7 +69,7 @@ export default function PublicHome() {
         <section id="research-question" className="home-section" aria-labelledby="research-question-title">
           <div className="home-section__inner home-reveal">
             <h2 id="research-question-title" className="home-section__title">{researchQuestion.heading}</h2>
-            <div className="home-card home-card--centered" style={{ borderColor: 'rgba(45,212,191,0.35)', boxShadow: '0 0 40px rgba(45,212,191,0.08)' }}>
+            <div className="home-card home-card--centered home-card--hover home-card--statement" style={{ borderColor: 'rgba(45,212,191,0.35)', boxShadow: '0 0 40px rgba(45,212,191,0.08)' }}>
               <p style={{ fontSize: 'clamp(1.1rem, 2.5vw, 1.45rem)', lineHeight: 1.65 }}>{researchQuestion.text}</p>
             </div>
           </div>
@@ -78,15 +78,8 @@ export default function PublicHome() {
         <section id="hypothesis" className="home-section" aria-labelledby="hypothesis-title">
           <div className="home-section__inner home-reveal">
             <h2 id="hypothesis-title" className="home-section__title">{hypothesis.heading}</h2>
-            <div className="home-grid-2">
-              <div className="home-card home-card--centered">
-                <p style={{ lineHeight: 1.75 }}>{hypothesis.text}</p>
-              </div>
-              <div className="home-card home-card--centered" aria-hidden="true" style={{ gap: 12, flexWrap: 'wrap' }}>
-                <span style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(45,212,191,0.3)', fontSize: 13 }}>digital behavior</span>
-                <span style={{ color: '#2dd4bf' }}>→</span>
-                <span style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(99,179,237,0.3)', fontSize: 13 }}>self-reported burnout or cognitive overload</span>
-              </div>
+            <div className="home-card home-card--centered home-card--hover home-card--statement">
+              <p style={{ fontSize: 'clamp(1.1rem, 2.5vw, 1.45rem)', lineHeight: 1.65 }}>{hypothesis.text}</p>
             </div>
           </div>
         </section>
@@ -96,7 +89,7 @@ export default function PublicHome() {
             <h2 id="background-title" className="home-section__title">{backgroundInformation.heading}</h2>
             <div className="home-grid-2">
               {backgroundInformation.paragraphs.map(paragraph => (
-                <div key={paragraph.slice(0, 48)} className="home-card home-card--centered">
+                <div key={paragraph.slice(0, 48)} className="home-card home-card--centered home-card--hover">
                   <p style={{ lineHeight: 1.75 }}>{paragraph}</p>
                 </div>
               ))}
@@ -112,7 +105,7 @@ export default function PublicHome() {
               {problem.statements.map((statement, index) => (
                 <div
                   key={statement}
-                  className={`home-card home-card--centered${index === problem.statements.length - 1 ? ' problem-card--wide' : ''}`}
+                  className={`home-card home-card--centered-problem home-card--hover${index === problem.statements.length - 1 ? ' problem-card--wide' : ''}`}
                 >
                   <p style={{ lineHeight: 1.75 }}>{statement}</p>
                 </div>
@@ -125,10 +118,10 @@ export default function PublicHome() {
           <div className="home-section__inner home-reveal">
             <h2 id="purpose-title" className="home-section__title">{purpose.heading}</h2>
             <div className="home-grid-2">
-              <div className="home-card home-card--centered">
+              <div className="home-card home-card--centered home-card--hover">
                 <p style={{ lineHeight: 1.75 }}>{purpose.text}</p>
               </div>
-              <div className="home-card home-card--centered home-card--flow">
+              <div className="home-card home-card--centered home-card--flow home-card--hover">
                 <PurposeFlowDiagram />
               </div>
             </div>
@@ -139,10 +132,10 @@ export default function PublicHome() {
           <div className="home-section__inner home-reveal">
             <h2 id="materials-title" className="home-section__title">{materials.heading}</h2>
             <div className="home-grid-2">
-              <div className="home-card home-card--centered">
+              <div className="home-card home-card--centered home-card--hover">
                 <p style={{ fontWeight: 600 }}>{materials.humanParticipants}</p>
               </div>
-              <div className="home-card home-card--centered home-card--materials-spec">
+              <div className="home-card home-card--centered home-card--materials-spec home-card--hover">
                 <p style={{ fontWeight: 600, marginBottom: 14 }}>{materials.computerTitle}</p>
                 <ul style={{ paddingLeft: 18, lineHeight: 1.85, margin: 0 }}>
                   {materials.specifications.map(spec => (
@@ -159,7 +152,7 @@ export default function PublicHome() {
             <h2 id="procedure-title" className="home-section__title">{procedure.heading}</h2>
             <div className="home-procedure-roadmap">
               {procedure.stages.map((stage, index) => (
-                <div key={stage.title} className={`home-card home-procedure-card${index === 0 ? ' home-procedure-card--current' : ''}`}>
+                <div key={stage.title} className={`home-card home-procedure-card home-card--hover${index === 0 ? ' home-procedure-card--current' : ''}`}>
                   {index === 0 ? (
                     <div className="home-procedure-badge">
                       <span className="home-procedure-badge__label">CURRENT PHASE</span>
@@ -198,7 +191,7 @@ export default function PublicHome() {
             <h2 id="bibliography-title" className="home-section__title">{bibliography.heading}</h2>
             <ol className="home-bibliography-list" style={{ paddingLeft: 20 }}>
               {bibliography.entries.map(entry => (
-                <li key={entry} className="home-bibliography-item home-card home-card--centered" style={{ listStyle: 'decimal' }}>
+                <li key={entry} className="home-bibliography-item home-card home-card--centered home-card--hover" style={{ listStyle: 'decimal' }}>
                   {entry}
                 </li>
               ))}

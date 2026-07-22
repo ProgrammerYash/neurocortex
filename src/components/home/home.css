@@ -5,7 +5,8 @@
   background: #060910;
   color: #e2e8f0;
   min-height: 100vh;
-  overflow-x: hidden;
+  overflow-x: clip;
+  padding-top: var(--home-nav-height);
 }
 
 .home-page *,
@@ -59,7 +60,40 @@
   min-height: 220px;
 }
 
-.home-card--materials-spec {
+@media (min-width: 768px) {
+  .home-navbar__row--sections {
+    display: flex;
+  }
+}
+
+.home-card--hover {
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+}
+
+.home-card--hover:hover,
+.home-card--hover:focus-within {
+  transform: translateY(-4px) scale(1.008);
+  border-color: rgba(45, 212, 191, 0.45);
+  box-shadow: 0 16px 40px rgba(45, 212, 191, 0.12), 0 0 0 1px rgba(45, 212, 191, 0.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-card--hover:hover,
+  .home-card--hover:focus-within {
+    transform: none;
+  }
+}
+
+.home-card--centered-problem {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  min-height: 160px;
+}
+
+.home-card--statement {
   min-height: 160px;
 }
 
@@ -97,6 +131,9 @@
   .home-hero-brain__node,
   .home-hero-brain__scan,
   .home-hero-brain__pathways,
+  .home-hero-brain-profile__node,
+  .home-hero-brain-profile__signal,
+  .home-hero-brain-profile__scan,
   .home-purpose-flow__connector,
   .home-procedure-path {
     animation: none !important;
@@ -113,13 +150,17 @@
   }
 }
 
-.home-navbar {
-  position: sticky;
+.home-navbar,
+.home-navbar--persistent {
+  position: fixed;
   top: 0;
-  z-index: 50;
-  background: rgba(6, 9, 16, 0.88);
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: rgba(6, 9, 16, 0.96);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(99, 179, 237, 0.12);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
 }
 
 .home-navbar__shell {
@@ -142,21 +183,24 @@
 .home-navbar__row--sections {
   margin-top: 6px;
   display: none;
+  justify-content: center;
 }
 
-@media (min-width: 768px) {
-  .home-navbar__row--sections {
-    display: flex;
-  }
+.home-navbar__sections-inner {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding-inline: 16px;
 }
 
 .home-navbar__sections-scroll {
-  display: flex;
-  gap: 4px;
+  display: inline-flex;
+  gap: 8px;
   overflow-x: auto;
   scrollbar-width: thin;
-  width: 100%;
-  padding-bottom: 2px;
+  max-width: 100%;
+  padding-inline: 12px;
+  justify-content: center;
 }
 
 .home-navbar__sections-scroll::-webkit-scrollbar {
@@ -431,47 +475,56 @@
   font-weight: 600;
 }
 
-.home-hero-brain {
+.home-hero-brain-profile {
   width: 100%;
-  max-width: 420px;
+  max-width: 460px;
   margin: 0 auto;
-  aspect-ratio: 1;
 }
 
-.home-hero-brain__svg {
+.home-hero-brain-profile__svg {
   width: 100%;
-  height: 100%;
+  height: auto;
+  display: block;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .home-hero-brain__node {
-    animation: homeBrainNode 5s ease-in-out infinite;
+  .home-hero-brain-profile__signal {
+    animation: homeBrainSignal 5.5s linear infinite;
   }
 
-  .home-hero-brain__pathways {
-    animation: homeBrainGlow 6s ease-in-out infinite;
+  .home-hero-brain-profile__node {
+    animation: homeBrainNode 4.8s ease-in-out infinite;
   }
 
-  .home-hero-brain__scan {
-    animation: homeBrainScan 8s linear infinite;
+  .home-hero-brain-profile__scan {
+    animation: homeBrainScanProfile 7s linear infinite;
   }
+}
+
+@keyframes homeBrainSignal {
+  to { stroke-dashoffset: -32; }
 }
 
 @keyframes homeBrainNode {
-  0%, 100% { opacity: 0.55; }
+  0%, 100% { opacity: 0.45; }
   50% { opacity: 1; }
 }
 
-@keyframes homeBrainGlow {
-  0%, 100% { opacity: 0.65; }
-  50% { opacity: 1; }
+@keyframes homeBrainScanProfile {
+  0% { transform: translateY(0); opacity: 0; }
+  15% { opacity: 0.55; }
+  85% { opacity: 0.55; }
+  100% { transform: translateY(250px); opacity: 0; }
 }
 
-@keyframes homeBrainScan {
-  0% { transform: translateY(60px); opacity: 0; }
-  15% { opacity: 0.5; }
-  85% { opacity: 0.5; }
-  100% { transform: translateY(340px); opacity: 0; }
+@media (max-width: 767px) {
+  .home-hero__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-hero-brain-profile {
+    max-width: 320px;
+  }
 }
 
 .home-mobile-menu {

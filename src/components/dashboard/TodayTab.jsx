@@ -13,6 +13,7 @@ export default function TodayTab({
   onNavigate,
   sessionBlockMessage,
   cognitiveOverloadIndex,
+  studyScheduleLabel,
 }) {
   const sessionsBlocked = !!sessionBlockMessage;
   return (
@@ -25,10 +26,13 @@ export default function TodayTab({
       ) : null}
       {/* Today status */}
       <Card style={{marginBottom:14}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:'wrap',gap:8}}>
           <div>
             <div style={{fontWeight:600,fontSize:15}}>Today's Protocol</div>
             <div style={{fontSize:12,color:T.muted,marginTop:2}}>Target: 2–3 minutes · {new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</div>
+            {studyScheduleLabel ? (
+              <div style={{fontSize:12,color:T.teal,marginTop:6}}>Study Schedule: {studyScheduleLabel}</div>
+            ) : null}
           </div>
           <div style={{fontSize:28,fontWeight:700,color:todayComplete?T.green:T.teal}}>{pct}%</div>
         </div>

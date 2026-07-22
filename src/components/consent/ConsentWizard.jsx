@@ -173,7 +173,6 @@ export default function ConsentWizard({ registration = false, onSubmit, submitti
             <div>Guardian: <strong>{account.guardianPrintedName.trim()}</strong></div>
             <div>Participant acknowledgment and signature: <strong>Complete</strong></div>
             <div>Guardian acknowledgment and signature: <strong>Complete</strong></div>
-            <div>Consent version: <strong>{consent.consent_version}</strong></div>
           </div>
           {error && <p role="alert" style={{color:T.red, marginTop:12, fontSize:13}}>{error}</p>}
           <div style={{display:'flex', gap:12, marginTop:20}}>

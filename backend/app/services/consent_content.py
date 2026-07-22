@@ -10,7 +10,7 @@ from pypdf import PdfReader
 
 CONSENT_VERSION = "neurocortex-consent-v1"
 SURVEY_VERSION = "daily-survey-v1"
-EXPECTED_TEMPLATE_SHA256 = "c0431445efd312f6975762aa9a2e48d06f9c991a545c978c718b8bc951eb1c95"
+EXPECTED_TEMPLATE_SHA256 = "5c20af2c21faf734f8dd394219f28815e70e2d3c8423b7d9b8a5d288c0a30faa"
 TEMPLATE_PATH = (
     Path(__file__).resolve().parents[1]
     / "templates"
@@ -38,9 +38,12 @@ EXPECTED_STATIC_VALUES = {
         "NeuroCortex - Predictive Model Designed to Predict Burnout and "
         "Cognitive Stress Overload"
     ),
-    "purpose": "Collect data from students daily through digital biomakers to train an AI predicitve model",
-    "participation_activities": "Log in to the app daily for 3 months and complete daily tasks",
-    "time_required": "10 Minutes daily",
+    "purpose": "Collect data from students through digital biomakers to train an AI predicitve model",
+    "participation_activities": (
+        "Log in to the app and complete study tasks according to the "
+        "participation schedule selected in the app"
+    ),
+    "time_required": "Approximately 10 minutes per session",
     "potential_risks": "N/A",
     "potential_benefits": "N/A",
     "confidentiality": "Names of all users are confidential and each user is given an anonymous ID",

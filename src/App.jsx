@@ -27,6 +27,9 @@ import Toast from './components/ui/Toast.jsx';
 import ChangePinScreen from './components/auth/ChangePinScreen.jsx';
 import ConsentCompletionScreen from './components/consent/ConsentCompletionScreen.jsx';
 import PublicHome from './components/home/PublicHome.jsx';
+import ParticipantAppShell from './components/participant/ParticipantAppShell.jsx';
+import ParticipantScheduleScreen from './components/participant/ParticipantScheduleScreen.jsx';
+import ParticipantSettings from './components/participant/ParticipantSettings.jsx';
 import RouteFocusMain from './routing/RouteFocusMain.jsx';
 import {
   BlockCrossRole,
@@ -64,8 +67,24 @@ export default function App() {
       navigate(ROUTES.participantConsent, { replace: true });
       return;
     }
+    if (participant?.studyFrequency == null || participant?.studyFrequency === '') {
+      navigate(ROUTES.participantSchedule, { replace: true });
+      return;
+    }
     navigate(ROUTES.participantDashboard, { replace: true });
   }, [navigate]);
+
+  const handleStudyFrequencySaved = useCallback((studyFrequency) => {
+    setCurrentUser(prev => (prev ? { ...prev, studyFrequency } : prev));
+  }, []);
+
+  const wrapParticipant = useCallback((element, guardOptions = {}) => (
+    <RequireParticipant user={currentUser} {...guardOptions}>
+      <ParticipantAppShell participantId={currentUser?.id}>
+        {element}
+      </ParticipantAppShell>
+    </RequireParticipant>
+  ), [currentUser]);
 
   const loadParticipantSessionData = useCallback(async (profile) => {
     const s = await Store.getSessions(profile.id);
@@ -175,8 +194,8 @@ export default function App() {
       return;
     }
     await loadParticipantSessionData(profile);
-    navigate(ROUTES.participantDashboard, { replace: true });
-  }, [loadParticipantSessionData, navigate]);
+    navigateAfterParticipantLogin(profile);
+  }, [loadParticipantSessionData, navigateAfterParticipantLogin]);
 
   const completeExistingConsent = useCallback(async () => {
     const me = await fetchCurrentParticipant();
@@ -186,8 +205,8 @@ export default function App() {
     const profile = mapApiParticipantToProfile(me, me.public_id);
     setCurrentUser(profile);
     await loadParticipantSessionData(profile);
-    navigate(ROUTES.participantDashboard, { replace: true });
-  }, [loadParticipantSessionData, navigate]);
+    navigateAfterParticipantLogin(profile);
+  }, [loadParticipantSessionData, navigateAfterParticipantLogin]);
 
   const logout = useCallback(() => {
     Store.clearAuth();
@@ -329,45 +348,50 @@ export default function App() {
             />
             <Route
               path={ROUTES.participantChangePin}
-              element={(
-                <RequireParticipant user={currentUser} allowPinChangeOnly>
-                  <ChangePinScreen onComplete={completePinChange} onLogout={logout} />
-                </RequireParticipant>
-              )}
+              element={wrapParticipant(<ChangePinScreen onComplete={completePinChange} onLogout={logout} />, { allowPinChangeOnly: true })}
             />
             <Route
               path={ROUTES.participantConsent}
-              element={(
-                <RequireParticipant user={currentUser} allowConsentOnly>
-                  <ConsentCompletionScreen onComplete={completeExistingConsent} onLogout={logout} showToast={showToast} />
-                </RequireParticipant>
+              element={wrapParticipant(<ConsentCompletionScreen onComplete={completeExistingConsent} onLogout={logout} showToast={showToast} />, { allowConsentOnly: true })}
+            />
+            <Route
+              path={ROUTES.participantSchedule}
+              element={wrapParticipant(
+                <ParticipantScheduleScreen onSaved={handleStudyFrequencySaved} />,
+                { allowScheduleOnly: true },
+              )}
+            />
+            <Route
+              path={ROUTES.participantSettings}
+              element={wrapParticipant(
+                <ParticipantSettings
+                  user={currentUser}
+                  onStudyFrequencySaved={handleStudyFrequencySaved}
+                  showToast={showToast}
+                />,
               )}
             />
             <Route
               path={ROUTES.participantDashboard}
-              element={(
-                <RequireParticipant user={currentUser}>
-                  <Dashboard user={currentUser} sessions={sessions} todaySessions={todaySessions} todayComplete={todayComplete} gameData={gameData} countdown={countdown} onNavigate={participantNavigate} onLogout={logout} showToast={showToast} unreadCount={unreadCount} onUnreadChange={setUnreadCount} />
-                </RequireParticipant>
+              element={wrapParticipant(
+                <Dashboard user={currentUser} sessions={sessions} todaySessions={todaySessions} todayComplete={todayComplete} gameData={gameData} countdown={countdown} onNavigate={participantNavigate} onLogout={logout} showToast={showToast} unreadCount={unreadCount} onUnreadChange={setUnreadCount} />,
               )}
             />
             <Route
               path={ROUTES.participantInbox}
-              element={(
-                <RequireParticipant user={currentUser}>
-                  <ParticipantInbox onBack={() => navigate(ROUTES.participantDashboard)} onUnreadChange={setUnreadCount} showToast={showToast} />
-                </RequireParticipant>
+              element={wrapParticipant(
+                <ParticipantInbox onBack={() => navigate(ROUTES.participantDashboard)} onUnreadChange={setUnreadCount} showToast={showToast} />,
               )}
             />
-            <Route path={ROUTES.reaction} element={<RequireParticipant user={currentUser}><ReactionTest locked={!!todaySessions.reaction} onComplete={async d => { const updated = await saveSession('reaction', d); await maybeCompleteDay(updated); navigate(ROUTES.participantDashboard); showToast('⚡ Reaction Test complete! +10 XP', 'success'); }} onBack={() => navigate(ROUTES.participantDashboard)} /></RequireParticipant>} />
-            <Route path={ROUTES.typing} element={<RequireParticipant user={currentUser}><TypingTest locked={!!todaySessions.typing} onComplete={async d => { const updated = await saveSession('typing', d); await maybeCompleteDay(updated); navigate(ROUTES.participantDashboard); showToast('⌨️ Typing analysis saved!', 'success'); }} onBack={() => navigate(ROUTES.participantDashboard)} /></RequireParticipant>} />
-            <Route path={ROUTES.memory} element={<RequireParticipant user={currentUser}><MemoryTest locked={!!todaySessions.memory} onComplete={async d => { const updated = await saveSession('memory', d); await maybeCompleteDay(updated); navigate(ROUTES.participantDashboard); showToast('🧩 Memory data recorded!', 'success'); }} onBack={() => navigate(ROUTES.participantDashboard)} /></RequireParticipant>} />
-            <Route path={ROUTES.attention} element={<RequireParticipant user={currentUser}><AttentionTest locked={!!todaySessions.attention} onComplete={async d => { const updated = await saveSession('attention', d); await maybeCompleteDay(updated); navigate(ROUTES.participantDashboard); showToast('🎯 Attention test saved!', 'success'); }} onBack={() => navigate(ROUTES.participantDashboard)} /></RequireParticipant>} />
-            <Route path={ROUTES.survey} element={<RequireParticipant user={currentUser}><DailySurvey locked={!!todaySessions.survey} onComplete={async d => { const updated = await saveSession('survey', d); const finished = await maybeCompleteDay(updated); if (!finished) showToast('📋 Survey saved!', 'success'); navigate(ROUTES.participantDashboard); }} onBack={() => navigate(ROUTES.participantDashboard)} /></RequireParticipant>} />
-            <Route path={ROUTES.nasaTlx} element={<RequireParticipant user={currentUser}><NasaTLX onComplete={async d => { await saveSession('nasaTLX', d); navigate(ROUTES.participantDashboard); showToast('📊 NASA-TLX saved! +25 coins', 'success'); await updateGame(g => ({ ...g, coins: g.coins + 25 })); }} onBack={() => navigate(ROUTES.participantDashboard)} /></RequireParticipant>} />
-            <Route path={ROUTES.participantPet} element={<RequireParticipant user={currentUser}><PetScreen gameData={gameData} updateGame={updateGame} onBack={() => navigate(ROUTES.participantDashboard)} showToast={showToast} /></RequireParticipant>} />
-            <Route path={ROUTES.participantAchievements} element={<RequireParticipant user={currentUser}><AchievementsScreen gameData={gameData} onBack={() => navigate(ROUTES.participantDashboard)} /></RequireParticipant>} />
-            <Route path={ROUTES.participantNeuroverse} element={<RequireParticipant user={currentUser}><NeuroVerse gameData={gameData} sessions={sessions} onBack={() => navigate(ROUTES.participantDashboard)} /></RequireParticipant>} />
+            <Route path={ROUTES.reaction} element={wrapParticipant(<ReactionTest locked={!!todaySessions.reaction} onComplete={async d => { const updated = await saveSession('reaction', d); await maybeCompleteDay(updated); navigate(ROUTES.participantDashboard); showToast('⚡ Reaction Test complete! +10 XP', 'success'); }} onBack={() => navigate(ROUTES.participantDashboard)} />)} />
+            <Route path={ROUTES.typing} element={wrapParticipant(<TypingTest locked={!!todaySessions.typing} onComplete={async d => { const updated = await saveSession('typing', d); await maybeCompleteDay(updated); navigate(ROUTES.participantDashboard); showToast('⌨️ Typing analysis saved!', 'success'); }} onBack={() => navigate(ROUTES.participantDashboard)} />)} />
+            <Route path={ROUTES.memory} element={wrapParticipant(<MemoryTest locked={!!todaySessions.memory} onComplete={async d => { const updated = await saveSession('memory', d); await maybeCompleteDay(updated); navigate(ROUTES.participantDashboard); showToast('🧩 Memory data recorded!', 'success'); }} onBack={() => navigate(ROUTES.participantDashboard)} />)} />
+            <Route path={ROUTES.attention} element={wrapParticipant(<AttentionTest locked={!!todaySessions.attention} onComplete={async d => { const updated = await saveSession('attention', d); await maybeCompleteDay(updated); navigate(ROUTES.participantDashboard); showToast('🎯 Attention test saved!', 'success'); }} onBack={() => navigate(ROUTES.participantDashboard)} />)} />
+            <Route path={ROUTES.survey} element={wrapParticipant(<DailySurvey locked={!!todaySessions.survey} onComplete={async d => { const updated = await saveSession('survey', d); const finished = await maybeCompleteDay(updated); if (!finished) showToast('📋 Survey saved!', 'success'); navigate(ROUTES.participantDashboard); }} onBack={() => navigate(ROUTES.participantDashboard)} />)} />
+            <Route path={ROUTES.nasaTlx} element={wrapParticipant(<NasaTLX onComplete={async d => { await saveSession('nasaTLX', d); navigate(ROUTES.participantDashboard); showToast('📊 NASA-TLX saved! +25 coins', 'success'); await updateGame(g => ({ ...g, coins: g.coins + 25 })); }} onBack={() => navigate(ROUTES.participantDashboard)} />)} />
+            <Route path={ROUTES.participantPet} element={wrapParticipant(<PetScreen gameData={gameData} updateGame={updateGame} onBack={() => navigate(ROUTES.participantDashboard)} showToast={showToast} />)} />
+            <Route path={ROUTES.participantAchievements} element={wrapParticipant(<AchievementsScreen gameData={gameData} onBack={() => navigate(ROUTES.participantDashboard)} />)} />
+            <Route path={ROUTES.participantNeuroverse} element={wrapParticipant(<NeuroVerse gameData={gameData} sessions={sessions} onBack={() => navigate(ROUTES.participantDashboard)} />)} />
             <Route
               path={ROUTES.researcherDashboard}
               element={(

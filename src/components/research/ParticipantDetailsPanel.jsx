@@ -90,6 +90,7 @@ export default function ParticipantDetailsPanel({ detail, onClose, onRefresh, sh
             <div>Grade: <strong>{detail.grade || '—'}</strong></div>
             <div>Age range: <strong>{detail.ageRange || '—'}</strong></div>
             <div>Joined: <strong>{detail.joinedDisplay || '—'}</strong></div>
+            <div>Study Schedule: <strong>{detail.studyFrequencyLabel || 'Not Selected'}</strong></div>
             <div>Status: <strong style={{ color: statusColor(detail.status) }}>{detail.status}</strong></div>
           </div>
         </section>

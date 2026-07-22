@@ -66,6 +66,7 @@ export function mapApiParticipantToProfile(participant, publicId) {
     consentRequired: participant?.consent_required == null ? undefined : participant.consent_required === true,
     consentRecorded: participant?.consent_recorded == null ? undefined : participant.consent_recorded === true,
     mustChangePin: participant?.must_change_pin === true,
+    studyFrequency: participant?.study_frequency ?? null,
     joinedAt,
     joinedDate,
   };

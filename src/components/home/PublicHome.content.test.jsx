@@ -4,8 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import PublicHome from './PublicHome.jsx';
 import RegisterScreen from '../auth/RegisterScreen.jsx';
 import ResearcherSignInScreen from '../auth/ResearcherSignInScreen.jsx';
-import { sectionNav, workInProgressLabel } from '../../content/presentationContent.js';
-import { allRequiredVerbatimStrings } from '../../content/presentationContent.js';
+import { hypothesis, sectionNav, workInProgressLabel, allRequiredVerbatimStrings } from '../../content/presentationContent.js';
 import { ROUTES } from '../../routing/routePaths.js';
 
 const purposeLabels = [
@@ -67,7 +66,8 @@ describe('PublicHome presentation content', () => {
     expect(screen.getByText('CURRENT PHASE')).toBeInTheDocument();
     expect(screen.getByText('2. Computer - HP EliteBook 840 G3')).toBeInTheDocument();
     expect(document.querySelector('.problem-card--wide')).toBeTruthy();
-    expect(document.querySelector('.home-hero-brain')).toBeTruthy();
+    expect(document.querySelector('.home-hero-brain-profile')).toBeTruthy();
+    expect(document.querySelector('.home-hero-brain')).toBeFalsy();
     expect(document.querySelector('.home-purpose-flow')).toBeTruthy();
     purposeLabels.forEach(label => {
       expect(screen.getByText(label)).toBeInTheDocument();
@@ -86,6 +86,24 @@ describe('PublicHome presentation content', () => {
     expect(sectionRow).toBeTruthy();
     const labels = within(sectionRow).getAllByRole('link').map(link => link.textContent);
     expect(labels).toEqual(sectionNav.map(item => item.label));
+  });
+
+  it('uses a single full-width Hypothesis card without the old diagram', () => {
+    renderAt('/', <PublicHome />);
+    expect(screen.getByText(hypothesis.text)).toBeInTheDocument();
+    expect(document.querySelectorAll('#hypothesis .home-card--statement')).toHaveLength(1);
+    expect(screen.queryByText('digital behavior', { selector: '#hypothesis span' })).not.toBeInTheDocument();
+  });
+
+  it('uses a persistent fixed navbar shell', () => {
+    renderAt('/', <PublicHome />);
+    expect(document.querySelector('.home-navbar--persistent')).toBeTruthy();
+    expect(document.querySelector('.home-navbar__sections-inner')).toBeTruthy();
+  });
+
+  it('centers all Problem cards', () => {
+    renderAt('/', <PublicHome />);
+    expect(document.querySelectorAll('.home-problem-grid .home-card--centered-problem')).toHaveLength(5);
   });
 
   it('opens and closes the mobile menu', () => {
