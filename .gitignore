@@ -26,3 +26,5 @@ __pycache__/
 
 # OS
 .DS_Store
+scripts/assets/source-rotating-brain.gif
+scripts/assets/preview-*.webp

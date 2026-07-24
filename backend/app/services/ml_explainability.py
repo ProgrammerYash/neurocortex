@@ -17,7 +17,7 @@ from app.models.ml_model import MLModel
 from app.models.ml_prediction import MLPrediction
 from app.models.participant import Participant
 from app.services.ml_inference import _load_model_engine, _load_model_metadata
-from app.services.ml_training import _row_to_vector
+from app.services.ml_engine_utils import row_to_vector
 from app.services.study_guard import (
     StudyGuardError,
     apply_dataset_filter,
@@ -110,7 +110,7 @@ def build_explanation_payload(
     metadata = _load_model_metadata(model)
     model_engine, engine = _load_model_engine(model, metadata)
     feature_vector = np.array(
-        [_row_to_vector(prediction.features_used, feature_names)],
+        [row_to_vector(prediction.features_used, feature_names)],
         dtype=float,
     )
     shap_values, base_value = _compute_shap_values(model_engine, engine, feature_vector, feature_names)

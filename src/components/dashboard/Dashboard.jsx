@@ -5,7 +5,8 @@ import Btn from '../ui/Btn.jsx';
 import { fetchUnreadMessageCount } from '../../store/messages.js';
 import { studyFrequencyLabel } from '../../constants/studyFrequency.js';
 import { ROUTES } from '../../routing/routePaths.js';
-import PetBanner from './PetBanner.jsx';
+import ParticipantAiDataNotice from './ParticipantAiDataNotice.jsx';
+import ResearchFeedbackCard from './ResearchFeedbackCard.jsx';
 import TodayTab from './TodayTab.jsx';
 import ProgressTab from './ProgressTab.jsx';
 import ConsentStatusTab from './ConsentStatusTab.jsx';
@@ -109,6 +110,9 @@ export default function Dashboard({user,sessions,todaySessions,todayComplete,gam
 
       {/* Pet banner */}
       {g&&<PetBanner g={g} onNavigate={onNavigate} />}
+
+      <ParticipantAiDataNotice />
+      <ResearchFeedbackCard />
 
       {/* Stats row */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:16}}>

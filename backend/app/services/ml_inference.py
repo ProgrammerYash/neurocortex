@@ -19,7 +19,7 @@ from app.models.ml_dataset import MLDataset
 from app.models.ml_model import MLModel
 from app.models.ml_prediction import MLPrediction
 from app.models.participant import Participant
-from app.services.ml_training import MODELS_DIR, _predict_scores, _row_to_vector
+from app.services.ml_engine_utils import predict_scores as _predict_scores, row_to_vector as _row_to_vector
 from app.services.research_etl import build_participant_day_record
 from app.services.study_guard import (
     StudyGuardError,
@@ -29,6 +29,8 @@ from app.services.study_guard import (
     assert_participant_visible,
     is_synthetic_public_id,
 )
+
+MODELS_DIR = Path(__file__).resolve().parents[2] / "models"
 
 RISK_LOW_MAX = 0.35
 RISK_HIGH_MIN = 0.70

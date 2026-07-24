@@ -33,7 +33,7 @@ class AuthError(Exception):
 
 
 def register_participant(db: Session, payload: ParticipantRegisterRequest) -> RegisterResponse:
-    from app.services.consent_service import validate_registration_consent_category
+    from app.services.consent_service import validate_registration_consent_category_for_age
     from app.services.electronic_consent_service import create_consent_record_uncommitted
 
     idempotency_key = str(payload.idempotency_key)
@@ -46,13 +46,17 @@ def register_participant(db: Session, payload: ParticipantRegisterRequest) -> Re
             raise AuthError("Idempotency key has already been used", status_code=409)
         return _register_response(participant)
 
-    consent_category = validate_registration_consent_category(payload.age_range, payload.age_consent_category)
+    consent_category = validate_registration_consent_category_for_age(
+        payload.age,
+        payload.age_consent_category,
+    )
     public_id = _unique_public_id(db)
     participant = Participant(
         public_id=public_id,
         pin_hash=hash_pin(payload.pin),
         grade=payload.grade,
-        age_range=payload.age_range,
+        age_range=str(payload.age),
+        age_years=payload.age,
         age_consent_category=consent_category,
         pet_choice=payload.pet_choice,
     )

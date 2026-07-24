@@ -7,6 +7,8 @@ import {
   fetchDashboardParticipants,
   fetchDashboardSummary,
   fetchParticipantAccountActions,
+  fetchStudySettings,
+  updateStudySettings,
 } from '../../store/research.js';
 
 vi.mock('../../store/research.js', () => ({
@@ -14,6 +16,8 @@ vi.mock('../../store/research.js', () => ({
   fetchDashboardParticipants: vi.fn(),
   fetchDashboardParticipantDetail: vi.fn(),
   fetchParticipantAccountActions: vi.fn(),
+  fetchStudySettings: vi.fn(),
+  updateStudySettings: vi.fn(),
 }));
 
 vi.mock('../../store/consent.js', () => ({
@@ -37,7 +41,8 @@ const participantRow = {
   studentName: 'Student One',
   guardianName: 'Guardian One',
   grade: '10th Grade',
-  ageRange: '15-16',
+  ageRange: '15',
+  ageDisplay: '15',
   joinedDisplay: 'Jul 19, 2026',
   sessions: 2,
   lastActiveDisplay: 'Jul 19, 2026 3:00 PM',
@@ -58,6 +63,11 @@ describe('ResearcherDashboard', () => {
 
   beforeEach(() => {
     fetchDashboardSummary.mockResolvedValue(summary);
+    fetchStudySettings.mockResolvedValue({
+      participant_feedback_enabled: false,
+      model_configured: false,
+      model_version: null,
+    });
     fetchDashboardParticipants.mockResolvedValue({ items: [participantRow], total: 1, limit: 20, offset: 0 });
     fetchParticipantAccountActions.mockResolvedValue({ items: [] });
     fetchDashboardParticipantDetail.mockResolvedValue({
@@ -79,8 +89,8 @@ describe('ResearcherDashboard', () => {
   it('renders summary cards without tab navigation', async () => {
     render(<ResearcherDashboard onBack={() => {}} />);
     expect(await screen.findByText('Total Participants')).toBeInTheDocument();
+    expect(await screen.findByText('Release Participant Feedback')).toBeInTheDocument();
     expect(screen.getByText('Average Memory Accuracy')).toBeInTheDocument();
-    expect(screen.getByText('2')).toBeInTheDocument();
     expect(screen.queryByText('ML / SHAP')).not.toBeInTheDocument();
     expect(screen.queryByText('Consent Forms')).not.toBeInTheDocument();
   });

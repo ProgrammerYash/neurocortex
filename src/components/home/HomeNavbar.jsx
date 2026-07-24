@@ -78,7 +78,7 @@ export default function HomeNavbar() {
     <>
       <header className="home-navbar home-navbar--persistent">
         <div className="home-navbar__shell">
-          <div className="home-navbar__row home-navbar__row--top">
+          <div className="home-navbar__row home-navbar-top-row home-navbar__row--top" data-testid="home-navbar-top-row">
             <button type="button" className="home-navbar__brand" onClick={goHome}>
               NeuroCortex
             </button>
@@ -97,9 +97,13 @@ export default function HomeNavbar() {
               {open ? '✕' : '☰'}
             </button>
           </div>
-          <nav className="home-navbar__row home-navbar__row--sections" aria-label="Primary">
+          <nav
+            className="home-navbar__row home-navbar-section-row home-navbar__row--sections"
+            aria-label="Primary"
+            data-testid="home-navbar-section-row"
+          >
             <div className="home-navbar__sections-inner">
-              <div className="home-navbar__sections-scroll">
+              <div className="home-navbar__section-links" data-testid="home-navbar-section-links">
                 {sectionNav.map(item => navLink(item))}
               </div>
             </div>

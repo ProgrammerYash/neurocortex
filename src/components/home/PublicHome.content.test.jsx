@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import PublicHome from './PublicHome.jsx';
@@ -66,8 +66,9 @@ describe('PublicHome presentation content', () => {
     expect(screen.getByText('CURRENT PHASE')).toBeInTheDocument();
     expect(screen.getByText('2. Computer - HP EliteBook 840 G3')).toBeInTheDocument();
     expect(document.querySelector('.problem-card--wide')).toBeTruthy();
-    expect(document.querySelector('.home-hero-brain-profile')).toBeTruthy();
-    expect(document.querySelector('.home-hero-brain')).toBeFalsy();
+    expect(document.querySelector('.home-hero-brain-visual__image')).toBeTruthy();
+    expect(document.querySelector('.home-hero-brain-profile')).toBeFalsy();
+    expect(document.querySelector('canvas')).toBeFalsy();
     expect(document.querySelector('.home-purpose-flow')).toBeTruthy();
     purposeLabels.forEach(label => {
       expect(screen.getByText(label)).toBeInTheDocument();
@@ -82,9 +83,8 @@ describe('PublicHome presentation content', () => {
 
   it('renders navbar links in required order', () => {
     renderAt('/', <PublicHome />);
-    const sectionRow = document.querySelector('.home-navbar__sections-scroll');
-    expect(sectionRow).toBeTruthy();
-    const labels = within(sectionRow).getAllByRole('link').map(link => link.textContent);
+    const sectionRow = screen.getByTestId('home-navbar-section-links');
+    const labels = [...sectionRow.querySelectorAll('a')].map(link => link.textContent);
     expect(labels).toEqual(sectionNav.map(item => item.label));
   });
 
@@ -95,10 +95,11 @@ describe('PublicHome presentation content', () => {
     expect(screen.queryByText('digital behavior', { selector: '#hypothesis span' })).not.toBeInTheDocument();
   });
 
-  it('uses a persistent fixed navbar shell', () => {
+  it('uses a persistent fixed navbar shell with section row', () => {
     renderAt('/', <PublicHome />);
     expect(document.querySelector('.home-navbar--persistent')).toBeTruthy();
-    expect(document.querySelector('.home-navbar__sections-inner')).toBeTruthy();
+    expect(screen.getByTestId('home-navbar-top-row')).toBeInTheDocument();
+    expect(screen.getByTestId('home-navbar-section-row')).toBeInTheDocument();
   });
 
   it('centers all Problem cards', () => {

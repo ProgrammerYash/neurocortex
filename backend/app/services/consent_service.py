@@ -67,6 +67,13 @@ def allow_researcher_consent_override() -> bool:
 def resolve_consent_category(participant: Participant) -> str:
     if participant.age_consent_category:
         return participant.age_consent_category
+    if participant.age_years is not None:
+        age = participant.age_years
+        if age <= 16:
+            return "under_18"
+        if age >= 19:
+            return "age_18_or_over"
+        return "unresolved"
     age_range = participant.age_range.strip()
     if age_range in {"13-14", "15-16"}:
         return "under_18"
@@ -91,6 +98,39 @@ def required_consent_types(participant: Participant) -> list[str]:
     if category == "age_18_or_over":
         return ["adult_informed_consent"]
     return []
+
+
+def validate_registration_consent_category_for_age(
+    age_years: int,
+    age_consent_category: str | None,
+) -> str:
+    from app.constants.participant_age import validate_participant_age
+
+    age = validate_participant_age(age_years)
+    if age_consent_category:
+        normalized = age_consent_category.strip()
+        if normalized not in {"under_18", "age_18_or_over"}:
+            raise ConsentError(
+                "Invalid age consent category",
+                status_code=422,
+                error_code="INVALID_AGE_CONSENT_CATEGORY",
+            )
+        return normalized
+    if age in {17, 18}:
+        raise ConsentError(
+            "Age consent category is required for the selected age",
+            status_code=422,
+            error_code="AGE_CONSENT_CATEGORY_REQUIRED",
+        )
+    if age <= 16:
+        return "under_18"
+    if age >= 19:
+        return "age_18_or_over"
+    raise ConsentError(
+        f"Unsupported age '{age_years}'",
+        status_code=422,
+        error_code="INVALID_AGE",
+    )
 
 
 def validate_registration_consent_category(age_range: str, age_consent_category: str | None) -> str:

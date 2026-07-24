@@ -78,8 +78,8 @@ export async function registerWithApi(body) {
     auth: false,
     body: {
       grade: body.grade,
-      age_range: body.ageRange,
-      age_consent_category: body.ageConsentCategory,
+      age: body.age,
+      age_consent_category: body.ageConsentCategory || undefined,
       pet_choice: body.petChoice,
       pin: body.pin,
       pin_confirmation: body.pinConfirmation,

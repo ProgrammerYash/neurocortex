@@ -1,0 +1,16 @@
+{
+  "model_id": "neurocortex-fixed-cognitive-strain-v1",
+  "model_version": "1.0.0",
+  "artifact_filename": "fixed_cognitive_strain_v1.joblib",
+  "fixed": true,
+  "feature_window": "latest_completed_session",
+  "feature_names": [],
+  "missing_value_rule": "nan",
+  "output_type": "probability",
+  "category_thresholds": {
+    "low_max": 0.35,
+    "elevated_min": 0.7
+  },
+  "source": "Fixed pretrained artifact slot (configure locally before enabling participant feedback).",
+  "checksum": null
+}

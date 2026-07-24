@@ -2,6 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { T } from '../../constants/tokens.js';
 import { fetchCurrentConsent } from '../../store/consent.js';
 import { PET_TYPES } from '../../constants/gamification.js';
+import {
+  PARTICIPANT_AGES,
+  defaultAgeConsentCategory,
+  requiresAgeConsentCategory,
+} from '../../constants/participantAge.js';
+import { PARTICIPANT_AI_TRAINING_SUMMARY } from '../../constants/participantAiMessaging.js';
 import Card from '../ui/Card.jsx';
 import Btn from '../ui/Btn.jsx';
 import Label from '../ui/Label.jsx';
@@ -10,13 +16,12 @@ import ConsentDocument from './ConsentDocument.jsx';
 import SignaturePad from './SignaturePad.jsx';
 
 const GRADES = ['9th Grade','10th Grade','11th Grade','12th Grade','College Freshman','College Sophomore','College Junior','College Senior'];
-const AGES = ['13-14','15-16','17-18','19-20','21-22','23+'];
 
 export default function ConsentWizard({ registration = false, onSubmit, submitting = false, error = '' }) {
   const [step, setStep] = useState(1);
   const [consent, setConsent] = useState(null);
   const [loadError, setLoadError] = useState('');
-  const [account, setAccount] = useState({grade:'', ageRange:'', ageConsentCategory:'', petChoice:'fox', pin:'', pinConfirmation:'', participantPrintedName:'', guardianPrintedName:''});
+  const [account, setAccount] = useState({grade:'', ageYears:'', ageConsentCategory:'', petChoice:'fox', pin:'', pinConfirmation:'', participantPrintedName:'', guardianPrintedName:''});
   const [participantAck, setParticipantAck] = useState(false);
   const [guardianAck, setGuardianAck] = useState(false);
   const [participantSigned, setParticipantSigned] = useState(false);
@@ -27,7 +32,8 @@ export default function ConsentWizard({ registration = false, onSubmit, submitti
   const guardianPad = useRef(null);
   const submitRef = useRef(false);
   const idempotencyKey = useRef(crypto.randomUUID());
-  const needsCategory = account.ageRange === '17-18';
+  const selectedAge = account.ageYears === '' ? null : Number(account.ageYears);
+  const needsCategory = selectedAge != null && requiresAgeConsentCategory(selectedAge);
 
   useEffect(() => {
     let active = true;
@@ -44,7 +50,7 @@ export default function ConsentWizard({ registration = false, onSubmit, submitti
   const namesValid = () => Boolean(account.participantPrintedName.trim() && account.guardianPrintedName.trim());
 
   const accountValid = () => {
-    if (!account.grade || !account.ageRange || !namesValid()) return false;
+    if (!account.grade || selectedAge == null || Number.isNaN(selectedAge) || !namesValid()) return false;
     if (needsCategory && !account.ageConsentCategory) return false;
     return /^\d{4,6}$/.test(account.pin) && account.pin === account.pinConfirmation;
   };
@@ -56,8 +62,10 @@ export default function ConsentWizard({ registration = false, onSubmit, submitti
     const body = {
       ...(registration ? {
         grade: account.grade,
-        ageRange: account.ageRange,
-        ageConsentCategory: needsCategory ? account.ageConsentCategory : (['13-14','15-16'].includes(account.ageRange) ? 'under_18' : 'age_18_or_over'),
+        age: selectedAge,
+        ageConsentCategory: needsCategory
+          ? account.ageConsentCategory
+          : defaultAgeConsentCategory(selectedAge),
         petChoice: account.petChoice,
         pin: account.pin,
         pinConfirmation: account.pinConfirmation,
@@ -116,10 +124,21 @@ export default function ConsentWizard({ registration = false, onSubmit, submitti
         <Card className="fade-in">
           <SectionTitle>Account, participant, and guardian</SectionTitle>
           <p style={{fontSize:12, color:T.muted, lineHeight:1.6, marginBottom:14}}>Your Participant ID will be generated when enrollment succeeds. Save it with your PIN.</p>
+          <p style={{fontSize:12, color:T.muted, lineHeight:1.6, marginBottom:14}}>{PARTICIPANT_AI_TRAINING_SUMMARY}</p>
           <Label>Grade Level</Label>
           <select aria-label="Grade Level" value={account.grade} onChange={e=>setAccount(a=>({...a,grade:e.target.value}))} style={{marginBottom:12}}><option value="">Select grade level</option>{GRADES.map(x=><option key={x}>{x}</option>)}</select>
-          <Label>Age Range</Label>
-          <select aria-label="Age Range" value={account.ageRange} onChange={e=>setAccount(a=>({...a,ageRange:e.target.value,ageConsentCategory:''}))} style={{marginBottom:12}}><option value="">Select age range</option>{AGES.map(x=><option key={x}>{x}</option>)}</select>
+          <Label>Age</Label>
+          <select
+            aria-label="Age"
+            value={account.ageYears}
+            onChange={e => setAccount(a => ({ ...a, ageYears: e.target.value, ageConsentCategory: '' }))}
+            style={{ marginBottom: 12 }}
+          >
+            <option value="">Select your age</option>
+            {PARTICIPANT_AGES.map(age => (
+              <option key={age} value={age}>{age}</option>
+            ))}
+          </select>
           {needsCategory && <><Label>Consent Category</Label><select aria-label="Consent Category" value={account.ageConsentCategory} onChange={e=>setAccount(a=>({...a,ageConsentCategory:e.target.value}))} style={{marginBottom:12}}><option value="">Select one</option><option value="under_18">Under 18</option><option value="age_18_or_over">18 or over</option></select></>}
           <Label>Study Companion</Label>
           <select aria-label="Study Companion" value={account.petChoice} onChange={e=>setAccount(a=>({...a,petChoice:e.target.value}))} style={{marginBottom:12}}>{Object.entries(PET_TYPES).map(([key,pet])=><option key={key} value={key}>{pet.emoji} {pet.name}</option>)}</select>

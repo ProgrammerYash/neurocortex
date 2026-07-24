@@ -32,6 +32,10 @@ class DashboardSummaryResponse(BaseModel):
     averageFatigue: float | None = None
     averageSleepHours: float | None = None
     averageMemoryAccuracy: float | None = None
+    participantFeedbackEnabled: bool = False
+    participantFeedbackUpdatedAt: datetime | None = None
+    modelConfigured: bool = False
+    modelVersion: str | None = None
 
 
 class DashboardParticipantRow(BaseModel):
@@ -40,6 +44,7 @@ class DashboardParticipantRow(BaseModel):
     guardianName: str | None = None
     grade: str
     ageRange: str
+    ageDisplay: str
     joinedAt: datetime
     joinedDisplay: str
     sessions: int
@@ -81,6 +86,7 @@ class DashboardParticipantDetail(BaseModel):
     guardianName: str | None = None
     grade: str
     ageRange: str
+    ageDisplay: str
     joinedAt: datetime
     joinedDisplay: str
     status: str

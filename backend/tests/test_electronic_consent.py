@@ -50,7 +50,7 @@ def signature_data_url(*, width: int = 500, height: int = 120, blank: bool = Fal
 def registration_payload(**overrides) -> dict:
     payload = {
         "grade": "10th Grade",
-        "age_range": "15-16",
+        "age": 15,
         "age_consent_category": "under_18",
         "pet_choice": "fox",
         "pin": "2468",
@@ -294,7 +294,7 @@ def test_existing_participant_is_blocked_then_can_complete_consent(
     payload = registration_payload()
     for key in (
         "grade",
-        "age_range",
+        "age",
         "age_consent_category",
         "pet_choice",
         "pin",

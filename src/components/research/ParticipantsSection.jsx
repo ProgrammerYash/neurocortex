@@ -18,7 +18,7 @@ const COLUMNS = [
   ['studentName', 'Student Name', 'student_name'],
   ['guardianName', 'Guardian Name', 'guardian_name'],
   ['grade', 'Grade', 'grade'],
-  ['ageRange', 'Age Range', 'age_range'],
+  ['ageDisplay', 'Age', 'age_display'],
   ['joinedDisplay', 'Joined', 'joined'],
   ['studyFrequencyLabel', 'Study Schedule', 'joined'],
   ['sessions', 'Sessions', 'sessions'],
@@ -219,7 +219,7 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast }) {
               <div style={{ fontSize: 13, lineHeight: 1.7 }}>
                 <div><strong>{row.studentName || '—'}</strong></div>
                 <div style={{ color: T.muted }}>{row.guardianName || '—'}</div>
-                <div>{row.grade} · {row.ageRange}</div>
+                <div>{row.grade} · {row.ageDisplay ?? row.ageRange}</div>
                 <div>Sessions: {row.sessions} · Completion: {formatPercent(row.sessionCompletion)}</div>
                 <div>Last active: {row.lastActiveDisplay || (row.sessions ? row.joinedDisplay : 'Never active')}</div>
                 <div>Study Schedule: {row.studyFrequencyLabel || 'Not Selected'}</div>

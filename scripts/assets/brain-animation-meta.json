@@ -1,0 +1,37 @@
+{
+  "detected_format": "GIF",
+  "source_dimensions": [
+    480,
+    270
+  ],
+  "loaded_dimensions": [
+    480,
+    270
+  ],
+  "source_frames": 225,
+  "source_duration_ms": 14990,
+  "source_bytes": 5590825,
+  "measured_background_rgb": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "dist_transparent": 10.0,
+  "dist_opaque": 22.0,
+  "flood_tolerance": 11.0,
+  "alpha_blur_sigma": 0.75,
+  "output_dimensions": [
+    492,
+    282
+  ],
+  "output_frames": 110,
+  "output_duration_ms": 14960,
+  "animated_webp": "public\\images\\neurocortex-rotating-brain.webp",
+  "animated_bytes": 1285340,
+  "webp_quality": 78,
+  "static_webp": "public\\images\\neurocortex-brain-static.webp",
+  "static_bytes": 13656,
+  "static_frame_index": 70,
+  "previous_animated_bytes": 11615662,
+  "processing_seconds": 105.8
+}

@@ -58,6 +58,7 @@ from app.services.data_quality_service import (
 )
 from app.services.procedure_service import get_active_procedure_for_researcher
 from app.schemas.study import StudyConfigResponse
+from app.schemas.study_settings import StudySettingsResponse, StudySettingsUpdateRequest
 from app.services.ml_dataset_service import (
     DatasetError,
     create_dataset,
@@ -71,7 +72,7 @@ from app.services.ml_dataset_service import (
     list_dataset_rows,
     list_datasets,
 )
-from app.schemas.ml_model import MLModelDetail, MLModelSummary, TrainModelRequest, TrainModelResponse
+from app.schemas.ml_model import MLModelDetail, MLModelSummary
 from app.schemas.ml_prediction import (
     BatchPredictResponse,
     PredictRequest,
@@ -98,7 +99,7 @@ from app.services.ml_inference import (
     predict_participant_session,
     risk_level,
 )
-from app.services.ml_training import TrainingError, get_model, list_models, train_model
+from app.services.ml_training import TrainingError, get_model, list_models
 from app.services.research_service import (
     get_research_stats,
     list_research_participants,
@@ -124,6 +125,12 @@ from app.services.researcher_dashboard_service import (
     get_dashboard_summary,
     list_dashboard_participants,
 )
+from app.services.study_settings_service import (
+    StudySettingsError,
+    get_study_settings,
+    update_participant_feedback_enabled,
+)
+from app.services.participant_feedback_service import researcher_feedback_summary
 from app.services.consent_service import (
     ConsentError,
     build_consent_status,
@@ -318,6 +325,47 @@ def get_dashboard_summary_endpoint(
     db: Session = Depends(get_db),
 ) -> DashboardSummaryResponse:
     return DashboardSummaryResponse(**get_dashboard_summary(db))
+
+
+@router.get("/study-settings", response_model=StudySettingsResponse)
+def get_research_study_settings(
+    _researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+) -> StudySettingsResponse:
+    settings = get_study_settings(db)
+    meta = researcher_feedback_summary(db)
+    return StudySettingsResponse(
+        participant_feedback_enabled=settings.participant_feedback_enabled,
+        participant_feedback_updated_at=settings.participant_feedback_updated_at,
+        participant_feedback_updated_by=settings.participant_feedback_updated_by,
+        model_configured=meta["model_configured"],
+        model_version=meta.get("model_version"),
+    )
+
+
+@router.patch("/study-settings", response_model=StudySettingsResponse)
+def update_research_study_settings(
+    payload: StudySettingsUpdateRequest,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+) -> StudySettingsResponse:
+    try:
+        update_participant_feedback_enabled(
+            db,
+            enabled=payload.participant_feedback_enabled,
+            researcher_id=researcher.id,
+        )
+    except StudySettingsError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    settings = get_study_settings(db)
+    meta = researcher_feedback_summary(db)
+    return StudySettingsResponse(
+        participant_feedback_enabled=settings.participant_feedback_enabled,
+        participant_feedback_updated_at=settings.participant_feedback_updated_at,
+        participant_feedback_updated_by=settings.participant_feedback_updated_by,
+        model_configured=meta["model_configured"],
+        model_version=meta.get("model_version"),
+    )
 
 
 @router.get("/dashboard/participants", response_model=DashboardParticipantsPage)
@@ -665,34 +713,6 @@ def get_research_dataset_labels(
         return get_dataset_labels(db, dataset_id)
     except DatasetError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
-
-
-@router.post("/models/train", response_model=TrainModelResponse, status_code=status.HTTP_201_CREATED)
-def train_research_model(
-    payload: TrainModelRequest,
-    researcher: Researcher = Depends(get_current_researcher),
-    db: Session = Depends(get_db),
-) -> TrainModelResponse:
-    try:
-        model = train_model(
-            db,
-            dataset_id=payload.dataset_id,
-            target_label=payload.target_label,
-            model_type=payload.model_type,
-            researcher_id=researcher.id,
-        )
-    except TrainingError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to train model",
-        ) from exc
-    return TrainModelResponse(
-        model_id=model.id,
-        status="completed",
-        metrics=model.metrics,
-    )
 
 
 @router.get("/models/compare", response_model=list[ModelComparisonItem])

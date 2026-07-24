@@ -150,14 +150,14 @@ export async function fetchResearchDatasetLabels(datasetId) {
   return apiRequest(`/v1/research/datasets/${datasetId}/labels`);
 }
 
-export async function trainResearchModel({ datasetId, targetLabel = 'burnout_next_day', modelType = 'lightgbm' }) {
-  return apiRequest('/v1/research/models/train', {
-    method: 'POST',
-    body: {
-      dataset_id: datasetId,
-      target_label: targetLabel,
-      model_type: modelType,
-    },
+export async function fetchStudySettings() {
+  return apiRequest('/v1/research/study-settings');
+}
+
+export async function updateStudySettings({ participant_feedback_enabled: participantFeedbackEnabled }) {
+  return apiRequest('/v1/research/study-settings', {
+    method: 'PATCH',
+    body: { participant_feedback_enabled: participantFeedbackEnabled },
   });
 }
 

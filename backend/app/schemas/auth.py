@@ -2,13 +2,15 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.constants.participant_age import validate_participant_age
+
 VALID_PET_CHOICES = frozenset({"fox", "owl", "cat", "dragon"})
 VALID_AGE_CONSENT_CATEGORIES = frozenset({"under_18", "age_18_or_over"})
 
 
 class ParticipantRegisterRequest(BaseModel):
     grade: str = Field(..., min_length=1, max_length=64)
-    age_range: str = Field(..., min_length=1, max_length=32)
+    age: int
     age_consent_category: str | None = Field(default=None, pattern="^(under_18|age_18_or_over)$")
     pet_choice: str = Field(..., min_length=1, max_length=32)
     pin: str = Field(..., min_length=4, max_length=6)
@@ -26,7 +28,6 @@ class ParticipantRegisterRequest(BaseModel):
 
     @field_validator(
         "grade",
-        "age_range",
         "pet_choice",
         "participant_printed_name",
         "guardian_printed_name",
@@ -37,6 +38,11 @@ class ParticipantRegisterRequest(BaseModel):
         if not cleaned:
             raise ValueError("must not be empty")
         return cleaned
+
+    @field_validator("age")
+    @classmethod
+    def validate_participant_age_field(cls, value: int) -> int:
+        return validate_participant_age(value)
 
     @field_validator("pet_choice")
     @classmethod

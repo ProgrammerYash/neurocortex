@@ -29,6 +29,7 @@ class Participant(Base):
     pin_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     grade: Mapped[str] = mapped_column(String(64), nullable=False)
     age_range: Mapped[str] = mapped_column(String(32), nullable=False)
+    age_years: Mapped[int | None] = mapped_column(nullable=True)
     age_consent_category: Mapped[str | None] = mapped_column(String(32), nullable=True)
     pet_choice: Mapped[str] = mapped_column(String(32), nullable=False)
     is_suspended: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")

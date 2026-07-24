@@ -21,6 +21,7 @@ from app.models.participant_message import ParticipantMessage
 from app.models.participant_game_data import ParticipantGameData
 from app.models.researcher import Researcher
 from app.models.researcher_invite import ResearcherInvite
+from app.models.study_settings import StudySettings
 
 __all__ = [
     "Participant",
@@ -46,4 +47,5 @@ __all__ = [
     "GeneratedStudyDocument",
     "Form4Record",
     "AuditEvent",
+    "StudySettings",
 ]

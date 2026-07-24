@@ -27,6 +27,7 @@ from app.models import (  # noqa: F401 — register models with metadata
     Researcher,
     ResearcherInvite,
     StudyProtocol,
+    StudySettings,
 )
 
 config = context.config

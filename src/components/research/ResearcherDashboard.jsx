@@ -3,6 +3,7 @@ import { T } from '../../constants/tokens.js';
 import { fetchDashboardSummary } from '../../store/research.js';
 import Btn from '../ui/Btn.jsx';
 import Card from '../ui/Card.jsx';
+import StudyFeedbackControl from './StudyFeedbackControl.jsx';
 import ParticipantsSection from './ParticipantsSection.jsx';
 import { formatPercent, formatReaction, formatScale, formatSleep } from './ParticipantDetailsPanel.jsx';
 
@@ -80,6 +81,8 @@ export default function ResearcherDashboard({ onBack, showToast }) {
           </div>
         ))}
       </div>
+
+      <StudyFeedbackControl showToast={showToast} />
 
       <ParticipantsSection onSummaryRefresh={load} showToast={showToast} />
     </div>

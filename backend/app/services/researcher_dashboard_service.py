@@ -18,6 +18,7 @@ from app.models.participant_consent_event import ParticipantConsentEvent
 from app.schemas.session import CORE_MODULE_KEYS
 from app.services.consent_content import CONSENT_VERSION
 from app.services.consent_service import WITHDRAWAL_EVENT_TYPES
+from app.constants.participant_age import format_participant_age_display
 from app.services.study_frequency import study_frequency_label
 from app.services.participant_account_service import (
     account_state_payload,
@@ -338,6 +339,7 @@ def _build_participant_row(
         "guardianName": guardian_name,
         "grade": participant.grade,
         "ageRange": participant.age_range,
+        "ageDisplay": format_participant_age_display(participant.age_years, participant.age_range),
         "joinedAt": participant.created_at,
         "joinedDisplay": format_study_date(participant.created_at),
         "sessions": metrics["sessions_started"],
@@ -467,10 +469,22 @@ def _strip_internal(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def get_dashboard_summary(db: Session) -> dict[str, Any]:
+    from app.services.participant_feedback_service import researcher_feedback_summary
+
     participants = db.execute(_base_participant_query(db, None)).scalars().all()
     rows = _compute_rows(db, participants)
     visible_rows = [row for row in rows if row["status"] != "Removed"]
-    return _summary_from_rows(visible_rows)
+    summary = _summary_from_rows(visible_rows)
+    feedback = researcher_feedback_summary(db)
+    summary.update(
+        {
+            "participantFeedbackEnabled": feedback["participant_feedback_enabled"],
+            "participantFeedbackUpdatedAt": feedback.get("participant_feedback_updated_at"),
+            "modelConfigured": feedback["model_configured"],
+            "modelVersion": feedback.get("model_version"),
+        }
+    )
+    return summary
 
 
 def list_dashboard_participants(

@@ -28,6 +28,10 @@ from app.services.electronic_consent_service import (
 )
 from app.services.participant_preference_service import ParticipantPreferenceError, update_study_frequency
 from app.services.procedure_service import build_participant_study_progress
+from app.services.participant_feedback_service import (
+    ParticipantFeedbackError,
+    get_participant_model_feedback,
+)
 from app.services.participant_message_service import (
     MessageError,
     list_participant_messages,
@@ -41,6 +45,7 @@ from app.services.session_service import (
     list_participant_sessions,
     upsert_module_result,
 )
+from app.schemas.participant_feedback import ParticipantModelFeedbackResponse
 from app.schemas.procedure import ParticipantStudyProgressResponse
 
 from app.utils.security import decode_access_token
@@ -309,3 +314,19 @@ def mark_my_message_read(
         ))
     except MessageError as exc:
         raise _message_http_error(exc) from exc
+
+
+@router.get("/me/model-feedback", response_model=ParticipantModelFeedbackResponse)
+def get_my_model_feedback(
+    participant: Participant = Depends(get_current_participant),
+    db: Session = Depends(get_db),
+) -> ParticipantModelFeedbackResponse:
+    from app.services.participant_account_service import AccountError
+
+    try:
+        payload = get_participant_model_feedback(db, participant)
+    except AccountError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"message": exc.message}) from exc
+    except ParticipantFeedbackError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    return ParticipantModelFeedbackResponse(**payload)
