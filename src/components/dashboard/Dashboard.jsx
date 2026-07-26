@@ -6,6 +6,7 @@ import { fetchUnreadMessageCount } from '../../store/messages.js';
 import { studyFrequencyLabel } from '../../constants/studyFrequency.js';
 import { ROUTES } from '../../routing/routePaths.js';
 import ParticipantAiDataNotice from './ParticipantAiDataNotice.jsx';
+import PetBanner from './PetBanner.jsx';
 import ResearchFeedbackCard from './ResearchFeedbackCard.jsx';
 import TodayTab from './TodayTab.jsx';
 import ProgressTab from './ProgressTab.jsx';
