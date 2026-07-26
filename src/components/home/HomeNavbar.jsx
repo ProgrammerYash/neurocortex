@@ -3,6 +3,23 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { sectionNav } from '../../content/presentationContent.js';
 import { ROUTES } from '../../routing/routePaths.js';
 
+function NavActions({ onNavigate, className = '' }) {
+  const navigate = useNavigate();
+  return (
+    <div className={`home-navbar__actions ${className}`.trim()} data-testid={className.includes('mobile') ? 'home-navbar-actions-mobile' : 'home-navbar-actions-desktop'}>
+      <button type="button" className="home-btn" onClick={() => { onNavigate?.(); navigate(ROUTES.participantSignIn); }}>
+        Participant Sign In
+      </button>
+      <button type="button" className="home-btn home-btn--primary" onClick={() => { onNavigate?.(); navigate(ROUTES.join); }}>
+        Join the Study
+      </button>
+      <button type="button" className="home-btn" onClick={() => { onNavigate?.(); navigate(ROUTES.researcherSignIn); }}>
+        Researcher Access
+      </button>
+    </div>
+  );
+}
+
 export default function HomeNavbar() {
   const [open, setOpen] = useState(false);
   const menuId = useId();
@@ -82,10 +99,7 @@ export default function HomeNavbar() {
             <button type="button" className="home-navbar__brand" onClick={goHome}>
               NeuroCortex
             </button>
-            <div className="home-navbar__actions">
-              <button type="button" className="home-btn" onClick={() => navigate(ROUTES.participantSignIn)}>Participant Sign In</button>
-              <button type="button" className="home-btn home-btn--primary" onClick={() => navigate(ROUTES.join)}>Join the Study</button>
-            </div>
+            <NavActions className="home-navbar__actions--desktop" />
             <button
               type="button"
               className="home-navbar__menu-btn"
@@ -96,6 +110,12 @@ export default function HomeNavbar() {
             >
               {open ? '✕' : '☰'}
             </button>
+          </div>
+          <div
+            className="home-navbar__row home-navbar__row--actions"
+            data-testid="home-navbar-actions-row"
+          >
+            <NavActions onNavigate={closeMenu} className="home-navbar__actions--mobile" />
           </div>
           <nav
             className="home-navbar__row home-navbar-section-row home-navbar__row--sections"
@@ -113,8 +133,6 @@ export default function HomeNavbar() {
       {open && (
         <nav id={menuId} className="home-mobile-menu" aria-label="Mobile">
           {sectionNav.map(item => navLink(item))}
-          <button type="button" onClick={() => { closeMenu(); navigate(ROUTES.participantSignIn); }}>Participant Sign In</button>
-          <button type="button" className="home-btn home-btn--primary" onClick={() => { closeMenu(); navigate(ROUTES.join); }}>Join the Study</button>
         </nav>
       )}
     </>

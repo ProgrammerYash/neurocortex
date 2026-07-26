@@ -28,6 +28,8 @@ from app.models import (  # noqa: F401 — register models with metadata
     ResearcherInvite,
     StudyProtocol,
     StudySettings,
+    ParticipantFeedbackSnapshot,
+    ParticipantFeedbackGenerationLock,
 )
 
 config = context.config

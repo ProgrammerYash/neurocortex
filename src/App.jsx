@@ -31,6 +31,7 @@ import ParticipantAppShell from './components/participant/ParticipantAppShell.js
 import ParticipantScheduleScreen from './components/participant/ParticipantScheduleScreen.jsx';
 import ParticipantSettings from './components/participant/ParticipantSettings.jsx';
 import RouteFocusMain from './routing/RouteFocusMain.jsx';
+import AppPageLoader from './components/ui/AppPageLoader.jsx';
 import {
   BlockCrossRole,
   RedirectIfAuthed,
@@ -312,7 +313,9 @@ export default function App() {
   return (
     <div style={{ fontFamily: T.font, background: T.bg, minHeight: '100vh', color: T.text }}>
       <style>{css}</style>
-      {waitingForSession ? null : (
+      {waitingForSession ? (
+        <AppPageLoader label="Loading your session…" />
+      ) : (
         <RouteFocusMain>
           <Routes>
             <Route path={ROUTES.home} element={<PublicHome />} />

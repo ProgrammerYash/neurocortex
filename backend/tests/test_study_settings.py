@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -9,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.database import engine, get_db
 from app.main import app
 from app.models.researcher import Researcher
-from app.utils.security import create_access_token, create_researcher_access_token
+from app.utils.security import create_researcher_access_token
 from tests.test_electronic_consent import register
 
 
@@ -45,7 +46,7 @@ def client(db: Session):
 
 @pytest.fixture()
 def researcher(db: Session) -> Researcher:
-    researcher = Researcher(display_name="Settings Tester", email=f"{uuid4()}@example.test")
+    researcher = Researcher(display_name="Groq Settings Tester", email=f"{uuid4()}@example.test")
     db.add(researcher)
     db.commit()
     return researcher
@@ -61,55 +62,31 @@ def researcher_headers(researcher: Researcher) -> dict[str, str]:
     }
 
 
-def test_feedback_setting_defaults_off(client: TestClient, researcher: Researcher):
-    response = client.get("/v1/research/study-settings", headers=researcher_headers(researcher))
+def test_groq_provider_status_requires_researcher(client: TestClient):
+    assert client.get("/v1/research/feedback/provider-status").status_code == 401
+
+
+def test_groq_provider_status_not_configured(client: TestClient, researcher: Researcher):
+    with patch(
+        "app.routers.research.get_groq_provider_status",
+        return_value={"configured": False, "status": "not_configured", "model": None, "provider": "Groq"},
+    ):
+        response = client.get("/v1/research/feedback/provider-status", headers=researcher_headers(researcher))
     assert response.status_code == 200
-    body = response.json()
-    assert body["participant_feedback_enabled"] is False
-    assert body["model_configured"] is False
+    assert response.json()["configured"] is False
 
 
-def test_researcher_can_enable_and_disable_feedback(client: TestClient, researcher: Researcher):
-    headers = researcher_headers(researcher)
-    enabled = client.patch(
-        "/v1/research/study-settings",
-        headers=headers,
-        json={"participant_feedback_enabled": True},
-    )
-    assert enabled.status_code == 200
-    assert enabled.json()["participant_feedback_enabled"] is True
-    assert enabled.json()["participant_feedback_updated_by"] == str(researcher.id)
-
-    disabled = client.patch(
-        "/v1/research/study-settings",
-        headers=headers,
-        json={"participant_feedback_enabled": False},
-    )
-    assert disabled.status_code == 200
-    assert disabled.json()["participant_feedback_enabled"] is False
-
-
-def test_participant_cannot_update_study_settings(client: TestClient):
+def test_participant_cannot_read_groq_provider_status(client: TestClient):
     registered = register(client)
     token = registered.json()["access_token"]
-    headers = {"Authorization": f"Bearer {token}"}
-    response = client.patch(
-        "/v1/research/study-settings",
-        headers=headers,
-        json={"participant_feedback_enabled": True},
+    response = client.get(
+        "/v1/research/feedback/provider-status",
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 403
 
 
-def test_unauthenticated_study_settings_rejected(client: TestClient):
-    assert client.get("/v1/research/study-settings").status_code == 401
-    assert client.patch("/v1/research/study-settings", json={"participant_feedback_enabled": True}).status_code == 401
-
-
-def test_invalid_study_settings_payload_rejected(client: TestClient, researcher: Researcher):
-    response = client.patch(
-        "/v1/research/study-settings",
-        headers=researcher_headers(researcher),
-        json={"participant_feedback_enabled": "yes"},
-    )
-    assert response.status_code == 422
+def test_legacy_study_settings_routes_removed(client: TestClient, researcher: Researcher):
+    headers = researcher_headers(researcher)
+    assert client.get("/v1/research/study-settings", headers=headers).status_code == 404
+    assert client.patch("/v1/research/study-settings", headers=headers, json={}).status_code == 404

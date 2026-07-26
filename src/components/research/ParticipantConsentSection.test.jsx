@@ -15,6 +15,7 @@ vi.mock('../../store/research.js', () => ({
   fetchDashboardParticipants: vi.fn(),
   fetchDashboardParticipantDetail: vi.fn(),
   fetchParticipantAccountActions: vi.fn(),
+  fetchGroqProviderStatus: vi.fn(async () => ({ status: 'ready' })),
 }));
 
 const pdfPayload = {

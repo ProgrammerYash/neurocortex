@@ -22,6 +22,8 @@ from app.models.participant_game_data import ParticipantGameData
 from app.models.researcher import Researcher
 from app.models.researcher_invite import ResearcherInvite
 from app.models.study_settings import StudySettings
+from app.models.participant_feedback_snapshot import ParticipantFeedbackSnapshot
+from app.models.participant_feedback_generation_lock import ParticipantFeedbackGenerationLock
 
 __all__ = [
     "Participant",
@@ -48,4 +50,6 @@ __all__ = [
     "Form4Record",
     "AuditEvent",
     "StudySettings",
+    "ParticipantFeedbackSnapshot",
+    "ParticipantFeedbackGenerationLock",
 ]

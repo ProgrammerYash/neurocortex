@@ -32,10 +32,10 @@ class DashboardSummaryResponse(BaseModel):
     averageFatigue: float | None = None
     averageSleepHours: float | None = None
     averageMemoryAccuracy: float | None = None
-    participantFeedbackEnabled: bool = False
-    participantFeedbackUpdatedAt: datetime | None = None
-    modelConfigured: bool = False
-    modelVersion: str | None = None
+    totalCompletedSessions: int = 0
+    groqFeedbackStatus: str = "not_configured"
+    groqFeedbackConfigured: bool = False
+    groqModel: str | None = None
 
 
 class DashboardParticipantRow(BaseModel):
@@ -61,6 +61,7 @@ class DashboardParticipantRow(BaseModel):
     consentRecordId: str | None = None
     studyFrequency: str | None = None
     studyFrequencyLabel: str = "Not Selected"
+    feedbackStatus: str = "Not Released"
 
 
 class DashboardParticipantsPage(BaseModel):
@@ -120,3 +121,4 @@ class DashboardParticipantDetail(BaseModel):
     consentGuardianSignedDisplay: str | None = None
     studyFrequency: str | None = None
     studyFrequencyLabel: str = "Not Selected"
+    feedbackStatus: str = "Not Released"

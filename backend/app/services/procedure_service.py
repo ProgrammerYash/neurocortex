@@ -18,6 +18,9 @@ from app.models.daily_session import (
     SESSION_STATUS_IN_PROGRESS,
     DailySession,
 )
+from app.models.participant import Participant
+from app.services.study_frequency import study_frequency_label
+from app.services.study_week import week_bounds_for, weekly_session_target
 from app.models.study_procedure import StudyProcedureVersion
 from app.models.study_protocol import StudyProtocol
 from app.services.consent_service import resolve_active_protocol
@@ -312,6 +315,37 @@ def count_completed_sessions(db: Session, *, participant_id: UUID) -> int:
     ).scalar_one()
 
 
+def count_completed_sessions_in_week(
+    db: Session,
+    *,
+    participant_id: UUID,
+    week_start: date,
+    week_end: date,
+) -> int:
+    return db.execute(
+        select(func.count())
+        .select_from(DailySession)
+        .where(
+            DailySession.participant_id == participant_id,
+            DailySession.status == SESSION_STATUS_COMPLETE,
+            DailySession.session_date >= week_start,
+            DailySession.session_date <= week_end,
+        )
+    ).scalar_one()
+
+
+def count_all_study_completed_sessions(db: Session) -> int:
+    from app.services.study_guard import apply_participant_filter
+
+    query = apply_participant_filter(
+        select(func.count())
+        .select_from(DailySession)
+        .join(Participant, Participant.id == DailySession.participant_id)
+        .where(DailySession.status == SESSION_STATUS_COMPLETE)
+    )
+    return db.execute(query).scalar_one()
+
+
 def build_participant_study_progress(
     db: Session,
     *,
@@ -321,10 +355,19 @@ def build_participant_study_progress(
     consent_block_reason: str | None,
     consent_block_message: str | None,
     withdrawal_status: str,
+    study_frequency: str | None = None,
 ) -> dict[str, Any]:
     procedure = resolve_active_procedure(db)
     completed = count_completed_sessions(db, participant_id=participant_id)
     required = procedure.min_sessions_per_participant
+    week_start, week_end = week_bounds_for(session_date)
+    completed_this_week = count_completed_sessions_in_week(
+        db,
+        participant_id=participant_id,
+        week_start=week_start,
+        week_end=week_end,
+    )
+    weekly_target = weekly_session_target(study_frequency)
 
     today_sessions = _sessions_on_date(db, participant_id=participant_id, session_date=session_date)
     today_complete = any(session.status == SESSION_STATUS_COMPLETE for session in today_sessions)
@@ -377,4 +420,9 @@ def build_participant_study_progress(
         "session_block_message": block_message,
         "study_start_date": procedure.study_start_date.isoformat(),
         "study_end_date": procedure.study_end_date.isoformat(),
+        "completed_this_week": completed_this_week,
+        "weekly_target": weekly_target,
+        "week_start": week_start.isoformat(),
+        "week_end": week_end.isoformat(),
+        "study_frequency_label": study_frequency_label(study_frequency),
     }

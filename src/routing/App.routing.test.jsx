@@ -100,7 +100,7 @@ describe('App routing', () => {
     expect(screen.getByTestId('pathname').textContent).toBe(ROUTES.participantSignIn);
   });
 
-  it('navigates Researcher access footer to /researcher/sign-in', () => {
+  it('navigates Researcher Access to /researcher/sign-in', () => {
     render(
       <MemoryRouter initialEntries={[ROUTES.home]}>
         <Routes>
@@ -108,7 +108,7 @@ describe('App routing', () => {
         </Routes>
       </MemoryRouter>,
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Researcher access' }));
+    fireEvent.click(screen.getAllByRole('button', { name: /Researcher Access/i })[0]);
     expect(screen.getByTestId('pathname').textContent).toBe(ROUTES.researcherSignIn);
   });
 });

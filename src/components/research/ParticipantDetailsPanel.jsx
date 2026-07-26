@@ -1,6 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { T } from '../../constants/tokens.js';
 import Btn from '../ui/Btn.jsx';
+import {
+  refreshParticipantFeedback,
+  releaseParticipantFeedback,
+  revokeParticipantFeedback,
+} from '../../store/research.js';
+import ParticipantAccountManagement, { AccountActionHistory } from './ParticipantAccountManagement.jsx';
+import ParticipantMessaging from './ParticipantMessaging.jsx';
+import ParticipantConsentSection from './ParticipantConsentSection.jsx';
 
 function dash(value) {
   return value === null || value === undefined || Number.isNaN(value) ? '—' : value;
@@ -22,10 +30,6 @@ export function formatPercent(value) {
   return dash(value) === '—' ? '—' : `${Number(value).toFixed(1)}%`;
 }
 
-import ParticipantAccountManagement, { AccountActionHistory } from './ParticipantAccountManagement.jsx';
-import ParticipantMessaging from './ParticipantMessaging.jsx';
-import ParticipantConsentSection from './ParticipantConsentSection.jsx';
-
 function statusColor(status) {
   if (status === 'Active') return T.green;
   if (status === 'Withdrawn' || status === 'Removed') return T.red;
@@ -34,7 +38,83 @@ function statusColor(status) {
   return T.muted;
 }
 
-export default function ParticipantDetailsPanel({ detail, onClose, onRefresh, showToast }) {
+function feedbackStatusDisplay(detail) {
+  return detail.feedbackStatus || detail.feedbackLabel || 'Not Released';
+}
+
+function ParticipantFeedbackControls({ detail, groqReady, onRefresh, showToast }) {
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  const statusLabel = feedbackStatusDisplay(detail);
+  const removed = detail?.isRemoved || detail?.status === 'Removed';
+
+  const run = async (action, fn) => {
+    if (busy) return;
+    if (action === 'release' && !groqReady) return;
+    setBusy(action);
+    setError('');
+    try {
+      await fn(detail.participantId);
+      showToast?.(
+        action === 'release'
+          ? 'Feedback released.'
+          : action === 'refresh'
+            ? 'Feedback refreshed.'
+            : 'Feedback revoked.',
+        'success',
+      );
+      if (onRefresh) await onRefresh(detail.participantId);
+    } catch (err) {
+      setError(err.message || 'Feedback action failed.');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  return (
+    <section style={{ marginTop: 18, borderTop: `1px solid ${T.faint}`, paddingTop: 18 }}>
+      <h3 style={{ fontSize: 12, color: T.muted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
+        Groq feedback
+      </h3>
+      <div style={{ fontSize: 13, lineHeight: 1.9, marginBottom: 12 }}>
+        <div>Feedback status: <strong>{statusLabel}</strong></div>
+      </div>
+      {!removed && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <Btn
+            disabled={!!busy || !groqReady}
+            title={!groqReady ? 'Groq feedback is not ready.' : undefined}
+            onClick={() => {
+              if (!window.confirm('Release feedback for this participant?')) return;
+              run('release', releaseParticipantFeedback);
+            }}
+          >
+            {busy === 'release' ? 'Releasing…' : 'Release Feedback'}
+          </Btn>
+          <Btn
+            disabled={!!busy || !groqReady}
+            title={!groqReady ? 'Groq feedback is not ready.' : undefined}
+            onClick={() => run('refresh', refreshParticipantFeedback)}
+          >
+            {busy === 'refresh' ? 'Refreshing…' : 'Refresh Feedback'}
+          </Btn>
+          <Btn
+            disabled={!!busy}
+            onClick={() => {
+              if (!window.confirm('Revoke feedback for this participant?')) return;
+              run('revoke', revokeParticipantFeedback);
+            }}
+          >
+            {busy === 'revoke' ? 'Revoking…' : 'Revoke Feedback'}
+          </Btn>
+        </div>
+      )}
+      {error && <p role="alert" style={{ color: T.red, fontSize: 13, marginTop: 10 }}>{error}</p>}
+    </section>
+  );
+}
+
+export default function ParticipantDetailsPanel({ detail, onClose, onRefresh, showToast, groqReady = false }) {
   const [actionRefresh, setActionRefresh] = useState(0);
   if (!detail) return null;
   return (
@@ -140,6 +220,13 @@ export default function ParticipantDetailsPanel({ detail, onClose, onRefresh, sh
             </div>
           )}
         </section>
+
+        <ParticipantFeedbackControls
+          detail={detail}
+          groqReady={groqReady}
+          onRefresh={onRefresh}
+          showToast={showToast}
+        />
 
         <ParticipantAccountManagement
           detail={detail}

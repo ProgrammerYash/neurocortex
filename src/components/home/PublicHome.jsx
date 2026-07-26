@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import HomeNavbar from './HomeNavbar.jsx';
-import HomeFooter from './HomeFooter.jsx';
 import WorkInProgressPanel from './WorkInProgressPanel.jsx';
 import PurposeFlowDiagram from './PurposeFlowDiagram.jsx';
 import { HeroBrainVisual, useReveal } from './homeUtils.jsx';
@@ -58,6 +57,7 @@ export default function PublicHome() {
                 <button type="button" className="home-btn" onClick={scrollToResearch}>Explore the Research</button>
                 <button type="button" className="home-btn home-btn--primary" onClick={() => navigate(ROUTES.join)}>Join the Study</button>
                 <button type="button" className="home-btn" onClick={() => navigate(ROUTES.participantSignIn)}>Participant Sign In</button>
+                <button type="button" className="home-btn" onClick={() => navigate(ROUTES.researcherSignIn)}>Researcher Access</button>
               </div>
             </div>
             <div className="home-reveal">
@@ -220,7 +220,6 @@ export default function PublicHome() {
           </div>
         </section>
       </main>
-      <HomeFooter />
     </div>
   );
 }

@@ -3,6 +3,18 @@ import { T } from '../../constants/tokens.js';
 import Card from '../ui/Card.jsx';
 import { fetchMyStudyProgress } from '../../store/consent.js';
 
+function formatWeekRange(weekStart, weekEnd) {
+  if (!weekStart || !weekEnd) return null;
+  try {
+    const start = new Date(`${weekStart}T12:00:00`);
+    const end = new Date(`${weekEnd}T12:00:00`);
+    const opts = { month: 'short', day: 'numeric' };
+    return `${start.toLocaleDateString(undefined, opts)} – ${end.toLocaleDateString(undefined, opts)}`;
+  } catch {
+    return null;
+  }
+}
+
 export default function StudyProgressTab() {
   const [progress, setProgress] = useState(null);
   const [error, setError] = useState(null);
@@ -22,11 +34,25 @@ export default function StudyProgressTab() {
     return <Card><p style={{ color: T.muted, textAlign: 'center', padding: '2rem' }}>Loading study progress…</p></Card>;
   }
 
+  const weeklyTarget = progress.weekly_target;
+  const weekRange = formatWeekRange(progress.week_start, progress.week_end);
+  const weeklyLine = weeklyTarget != null
+    ? `Completed sessions this week: ${progress.completed_this_week ?? 0} / ${weeklyTarget}`
+    : null;
+
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <Card>
         <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>Study Progress</div>
-        <div style={{ fontSize: 13, color: T.muted, lineHeight: 1.7 }}>
+        {weeklyLine ? (
+          <div style={{ fontSize: 13, color: T.muted, lineHeight: 1.7 }} data-testid="weekly-session-progress">
+            {weeklyLine}
+            {weekRange ? (
+              <span style={{ display: 'block', fontSize: 12, marginTop: 4 }}>Week of {weekRange}</span>
+            ) : null}
+          </div>
+        ) : null}
+        <div style={{ fontSize: 13, color: T.muted, lineHeight: 1.7, marginTop: weeklyLine ? 8 : 0 }}>
           Completed sessions: <strong style={{ color: T.teal }}>{progress.completed_sessions}</strong> / {progress.required_sessions}
         </div>
         <div style={{ fontSize: 13, color: T.muted, marginTop: 6 }}>

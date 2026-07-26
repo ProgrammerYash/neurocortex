@@ -150,14 +150,108 @@ export async function fetchResearchDatasetLabels(datasetId) {
   return apiRequest(`/v1/research/datasets/${datasetId}/labels`);
 }
 
-export async function fetchStudySettings() {
-  return apiRequest('/v1/research/study-settings');
+export function buildBulkSelectionPayload({
+  selectionMode,
+  selectedIds,
+  excludedIds,
+  filters,
+} = {}) {
+  if (selectionMode === 'all_matching') {
+    const payload = {
+      selection_mode: 'all_matching',
+      filters: {
+        search: filters?.search ?? '',
+        sort: filters?.sort ?? 'joined',
+        direction: filters?.direction ?? 'desc',
+        status: filters?.status ?? 'all_current',
+      },
+    };
+    if (excludedIds?.length) payload.excluded_public_ids = excludedIds;
+    return payload;
+  }
+  return {
+    participant_public_ids: selectedIds ?? [],
+  };
 }
 
-export async function updateStudySettings({ participant_feedback_enabled: participantFeedbackEnabled }) {
-  return apiRequest('/v1/research/study-settings', {
-    method: 'PATCH',
-    body: { participant_feedback_enabled: participantFeedbackEnabled },
+export async function fetchGroqProviderStatus() {
+  return apiRequest('/v1/research/feedback/provider-status');
+}
+
+export async function releaseParticipantFeedback(publicId) {
+  return apiRequest(`/v1/research/participants/${encodeURIComponent(publicId)}/feedback/release`, {
+    method: 'POST',
+    body: {},
+  });
+}
+
+export async function refreshParticipantFeedback(publicId) {
+  return apiRequest(`/v1/research/participants/${encodeURIComponent(publicId)}/feedback/refresh`, {
+    method: 'POST',
+    body: {},
+  });
+}
+
+export async function revokeParticipantFeedback(publicId) {
+  return apiRequest(`/v1/research/participants/${encodeURIComponent(publicId)}/feedback/revoke`, {
+    method: 'POST',
+    body: {},
+  });
+}
+
+export async function bulkReleaseFeedback(payload) {
+  return apiRequest('/v1/research/participants/feedback/release-bulk', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function bulkRevokeFeedback(payload) {
+  return apiRequest('/v1/research/participants/feedback/revoke-bulk', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function bulkRefreshFeedback(payload) {
+  return apiRequest('/v1/research/participants/feedback/refresh-bulk', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function bulkMessageParticipants(payload) {
+  return apiRequest('/v1/research/participants/bulk/message', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function bulkEmailParticipants(payload) {
+  return apiRequest('/v1/research/participants/bulk/email', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function bulkSuspendParticipants(payload) {
+  return apiRequest('/v1/research/participants/bulk/suspend', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function bulkReactivateParticipants(payload) {
+  return apiRequest('/v1/research/participants/bulk/reactivate', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function bulkRemoveParticipants(payload) {
+  return apiRequest('/v1/research/participants/bulk/remove', {
+    method: 'POST',
+    body: payload,
   });
 }
 

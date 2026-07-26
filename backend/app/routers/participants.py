@@ -181,6 +181,7 @@ def get_my_study_progress(
         consent_block_reason=consent.get("session_block_reason"),
         consent_block_message=consent.get("session_block_message"),
         withdrawal_status=consent.get("withdrawal_status", "active"),
+        study_frequency=participant.study_frequency,
     )
     return ParticipantStudyProgressResponse(**progress)
 

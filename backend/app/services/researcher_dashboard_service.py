@@ -407,16 +407,23 @@ def _compute_rows(db: Session, participants: list[Participant]) -> list[dict[str
     sessions_map = _load_sessions_by_participant(db, ids)
 
     rows = []
+    participant_ids = [participant.id for participant in participants]
+    from app.services.participant_feedback_service import (
+        RESEARCHER_STATUS_NOT_RELEASED,
+        load_feedback_status_map,
+    )
+
+    feedback_map = load_feedback_status_map(db, participant_ids)
     for participant in participants:
         metrics = _aggregate_sessions(sessions_map.get(participant.id, []))
-        rows.append(
-            _build_participant_row(
-                participant,
-                consent=consent_map.get(participant.id),
-                withdrawal_status=withdrawal_map.get(participant.id),
-                metrics=metrics,
-            )
+        row = _build_participant_row(
+            participant,
+            consent=consent_map.get(participant.id),
+            withdrawal_status=withdrawal_map.get(participant.id),
+            metrics=metrics,
         )
+        row["feedbackStatus"] = feedback_map.get(participant.id, RESEARCHER_STATUS_NOT_RELEASED)
+        rows.append(row)
     return rows
 
 
@@ -470,6 +477,7 @@ def _strip_internal(row: dict[str, Any]) -> dict[str, Any]:
 
 def get_dashboard_summary(db: Session) -> dict[str, Any]:
     from app.services.participant_feedback_service import researcher_feedback_summary
+    from app.services.procedure_service import count_all_study_completed_sessions
 
     participants = db.execute(_base_participant_query(db, None)).scalars().all()
     rows = _compute_rows(db, participants)
@@ -478,10 +486,10 @@ def get_dashboard_summary(db: Session) -> dict[str, Any]:
     feedback = researcher_feedback_summary(db)
     summary.update(
         {
-            "participantFeedbackEnabled": feedback["participant_feedback_enabled"],
-            "participantFeedbackUpdatedAt": feedback.get("participant_feedback_updated_at"),
-            "modelConfigured": feedback["model_configured"],
-            "modelVersion": feedback.get("model_version"),
+            "totalCompletedSessions": count_all_study_completed_sessions(db),
+            "groqFeedbackStatus": feedback["groq_feedback_status"],
+            "groqFeedbackConfigured": feedback["groq_feedback_configured"],
+            "groqModel": feedback.get("groq_model"),
         }
     )
     return summary

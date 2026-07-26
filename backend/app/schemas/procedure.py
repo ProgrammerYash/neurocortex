@@ -35,6 +35,11 @@ class ParticipantStudyProgressResponse(BaseModel):
     session_block_message: str | None = None
     study_start_date: str
     study_end_date: str
+    completed_this_week: int = 0
+    weekly_target: int | None = None
+    week_start: str | None = None
+    week_end: str | None = None
+    study_frequency_label: str = "Not Selected"
 
 
 class DataQualityFlagRecord(BaseModel):

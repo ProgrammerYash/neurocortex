@@ -54,6 +54,20 @@ class Settings(BaseSettings):
         default=False,
         validation_alias="ALLOW_RESEARCHER_CONSENT_OVERRIDE",
     )
+    study_timezone: str = Field(
+        default="America/New_York",
+        validation_alias="STUDY_TIMEZONE",
+    )
+    groq_api_key: str | None = Field(default=None, validation_alias="GROQ_API_KEY")
+    groq_model: str | None = Field(default=None, validation_alias="GROQ_MODEL")
+    groq_timeout_seconds: int = Field(default=30, validation_alias="GROQ_TIMEOUT_SECONDS")
+    groq_max_retries: int = Field(default=2, validation_alias="GROQ_MAX_RETRIES")
+    smtp_host: str | None = Field(default=None, validation_alias="SMTP_HOST")
+    smtp_port: int = Field(default=587, validation_alias="SMTP_PORT")
+    smtp_username: str | None = Field(default=None, validation_alias="SMTP_USERNAME")
+    smtp_password: str | None = Field(default=None, validation_alias="SMTP_PASSWORD")
+    smtp_from_email: str | None = Field(default=None, validation_alias="SMTP_FROM_EMAIL")
+    smtp_use_tls: bool = Field(default=True, validation_alias="SMTP_USE_TLS")
 
     @model_validator(mode="after")
     def apply_study_mode_defaults(self) -> "Settings":

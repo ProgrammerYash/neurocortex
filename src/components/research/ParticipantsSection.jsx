@@ -1,11 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { T } from '../../constants/tokens.js';
-import { fetchDashboardParticipantDetail, fetchDashboardParticipants } from '../../store/research.js';
+import {
+  fetchDashboardParticipantDetail,
+  fetchDashboardParticipants,
+  fetchGroqProviderStatus,
+} from '../../store/research.js';
 import { downloadAllConsents } from '../../store/consent.js';
 import { ensureZipBlob, triggerBlobDownload } from '../../utils/blobDownload.js';
 import Card from '../ui/Card.jsx';
 import Btn from '../ui/Btn.jsx';
 import SectionTitle from '../ui/SectionTitle.jsx';
+import ParticipantBulkToolbar from './ParticipantBulkToolbar.jsx';
 import ParticipantDetailsPanel, {
   formatPercent,
   formatReaction,
@@ -24,6 +29,7 @@ const COLUMNS = [
   ['sessions', 'Sessions', 'sessions'],
   ['lastActiveDisplay', 'Last Active', 'last_active'],
   ['status', 'Status', 'status'],
+  ['feedbackStatus', 'AI Feedback', 'feedback_status'],
   ['averageReactionTimeMs', 'Avg Reaction', 'average_reaction_time'],
   ['averageStress', 'Avg Stress', 'average_stress'],
   ['averageFatigue', 'Avg Fatigue', 'average_fatigue'],
@@ -32,6 +38,36 @@ const COLUMNS = [
   ['sessionCompletion', 'Session Completion', 'session_completion'],
   ['consentRecorded', 'Consent', 'consent'],
 ];
+
+export const STATUS_FILTERS = [
+  ['all_current', 'All current'],
+  ['active', 'Active'],
+  ['inactive', 'Inactive'],
+  ['suspended', 'Suspended'],
+  ['disabled', 'Disabled'],
+  ['withdrawn', 'Withdrawn'],
+  ['removed', 'Removed'],
+];
+
+export function emptyStateMessage(statusFilter, search) {
+  if (search.trim()) return 'No participants match your search.';
+  switch (statusFilter) {
+    case 'active':
+      return 'No active participants match this filter.';
+    case 'inactive':
+      return 'No inactive participants match this filter.';
+    case 'suspended':
+      return 'No suspended participants match this filter.';
+    case 'disabled':
+      return 'No disabled participants match this filter.';
+    case 'withdrawn':
+      return 'No withdrawn participants match this filter.';
+    case 'removed':
+      return 'No removed participants match this filter.';
+    default:
+      return 'No participants have enrolled yet.';
+  }
+}
 
 function cellValue(row, key) {
   if (key === 'studentName' || key === 'guardianName') return row[key] || '—';
@@ -42,6 +78,7 @@ function cellValue(row, key) {
   if (key === 'averageSleepHours') return formatSleep(row.averageSleepHours);
   if (key === 'averageMemoryAccuracy' || key === 'sessionCompletion') return formatPercent(row[key]);
   if (key === 'consentRecorded') return row.consentRecorded ? 'Recorded' : 'Missing';
+  if (key === 'feedbackStatus') return row.feedbackStatus || 'Not Released';
   return row[key] ?? '—';
 }
 
@@ -52,17 +89,7 @@ function statusColor(status) {
   return T.muted;
 }
 
-const STATUS_FILTERS = [
-  ['all_current', 'All current'],
-  ['active', 'Active'],
-  ['inactive', 'Inactive'],
-  ['suspended', 'Suspended'],
-  ['disabled', 'Disabled'],
-  ['withdrawn', 'Withdrawn'],
-  ['removed', 'Removed'],
-];
-
-export default function ParticipantsSection({ onSummaryRefresh, showToast }) {
+export default function ParticipantsSection({ onSummaryRefresh, showToast, groqReady: groqReadyProp }) {
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -76,13 +103,34 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast }) {
   const [detailLoading, setDetailLoading] = useState('');
   const [compact, setCompact] = useState(() => typeof window !== 'undefined' && window.innerWidth < 900);
   const [zipBusy, setZipBusy] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [selectAllMatching, setSelectAllMatching] = useState(false);
+  const [excludedIds, setExcludedIds] = useState(() => new Set());
+  const [groqReady, setGroqReady] = useState(groqReadyProp ?? false);
+  const headerCheckboxRef = useRef(null);
   const limit = 20;
+
+  useEffect(() => {
+    if (groqReadyProp !== undefined) {
+      setGroqReady(groqReadyProp);
+      return;
+    }
+    fetchGroqProviderStatus()
+      .then(data => setGroqReady(data.status === 'ready'))
+      .catch(() => setGroqReady(false));
+  }, [groqReadyProp]);
 
   useEffect(() => {
     const onResize = () => setCompact(window.innerWidth < 900);
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+    setSelectAllMatching(false);
+    setExcludedIds(new Set());
+  }, [search, statusFilter, sort, direction]);
 
   const load = () => {
     setLoading(true);
@@ -100,6 +148,81 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast }) {
     const timer = setTimeout(load, search ? 250 : 0);
     return () => clearTimeout(timer);
   }, [offset, search, sort, direction, statusFilter]);
+
+  const pageIds = useMemo(() => items.map(row => row.participantId), [items]);
+
+  const isRowSelected = participantId => {
+    if (selectAllMatching) return !excludedIds.has(participantId);
+    return selectedIds.has(participantId);
+  };
+
+  const selectedCount = selectAllMatching ? Math.max(0, total - excludedIds.size) : selectedIds.size;
+
+  const pageSelectedCount = pageIds.filter(id => isRowSelected(id)).length;
+  const allPageSelected = pageIds.length > 0 && pageSelectedCount === pageIds.length;
+  const somePageSelected = pageSelectedCount > 0 && !allPageSelected;
+
+  useEffect(() => {
+    if (headerCheckboxRef.current) {
+      headerCheckboxRef.current.indeterminate = somePageSelected;
+    }
+  }, [somePageSelected]);
+
+  const showSelectAllBanner = allPageSelected && total > items.length && !selectAllMatching;
+
+  const selectionMode = selectAllMatching ? 'all_matching' : 'explicit';
+  const selectionFilters = useMemo(
+    () => ({ search, sort, direction, status: statusFilter }),
+    [search, sort, direction, statusFilter],
+  );
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+    setSelectAllMatching(false);
+    setExcludedIds(new Set());
+  };
+
+  const toggleRow = (participantId, event) => {
+    event.stopPropagation();
+    if (selectAllMatching) {
+      setExcludedIds(prev => {
+        const next = new Set(prev);
+        if (next.has(participantId)) next.delete(participantId);
+        else next.add(participantId);
+        return next;
+      });
+      return;
+    }
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(participantId)) next.delete(participantId);
+      else next.add(participantId);
+      return next;
+    });
+  };
+
+  const togglePageSelectAll = event => {
+    const checked = event.target.checked;
+    if (selectAllMatching) {
+      setExcludedIds(prev => {
+        const next = new Set(prev);
+        pageIds.forEach(id => {
+          if (checked) next.delete(id);
+          else next.add(id);
+        });
+        return next;
+      });
+      return;
+    }
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      pageIds.forEach(id => {
+        if (checked) next.add(id);
+        else next.delete(id);
+      });
+      return next;
+    });
+  };
 
   const pageLabel = useMemo(() => {
     if (!total) return '0 participants';
@@ -153,6 +276,8 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast }) {
     }
   };
 
+  const emptyMessage = emptyStateMessage(statusFilter, search);
+
   return (
     <Card className="fade-in">
       <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start', flexWrap: 'wrap' }}>
@@ -195,6 +320,46 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast }) {
         </select>
       </label>
 
+      {selectedCount > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 12 }}>
+          <span style={{ fontSize: 12, color: T.muted }}>{selectedCount} selected</span>
+          <Btn onClick={clearSelection} style={{ fontSize: 11, padding: '4px 10px' }}>Clear selection</Btn>
+        </div>
+      )}
+
+      {showSelectAllBanner && (
+        <div style={{ marginBottom: 12, padding: '10px 12px', background: 'rgba(56,189,189,0.08)', borderRadius: 8, fontSize: 12 }}>
+          All {items.length} participants on this page are selected.{' '}
+          <button
+            type="button"
+            onClick={() => {
+              setSelectAllMatching(true);
+              setSelectedIds(new Set());
+              setExcludedIds(new Set());
+            }}
+            style={{ background: 'none', border: 'none', color: T.teal, cursor: 'pointer', textDecoration: 'underline', padding: 0, font: 'inherit' }}
+          >
+            Select all {total} matching participants
+          </button>
+        </div>
+      )}
+
+      <ParticipantBulkToolbar
+        selectedCount={selectedCount}
+        selectionMode={selectionMode}
+        selectedIds={[...selectedIds]}
+        excludedIds={[...excludedIds]}
+        filters={selectionFilters}
+        groqReady={groqReady}
+        emailEnabled={false}
+        onComplete={async () => {
+          clearSelection();
+          await load();
+          if (onSummaryRefresh) await onSummaryRefresh();
+        }}
+        showToast={showToast}
+      />
+
       {error && (
         <div style={{ marginBottom: 12 }}>
           <p role="alert" style={{ color: T.red, fontSize: 13, marginBottom: 8 }}>{error}</p>
@@ -204,16 +369,25 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast }) {
 
       {loading ? (
         <p style={{ color: T.muted, padding: '24px 0', textAlign: 'center' }}>Loading participants…</p>
-      ) : !total && !search.trim() ? (
-        <p style={{ color: T.muted, padding: '24px 0', textAlign: 'center' }}>No participants have enrolled yet.</p>
+      ) : !total ? (
+        <p style={{ color: T.muted, padding: '24px 0', textAlign: 'center' }}>{emptyMessage}</p>
       ) : !items.length ? (
-        <p style={{ color: T.muted, padding: '24px 0', textAlign: 'center' }}>No participants match your search.</p>
+        <p style={{ color: T.muted, padding: '24px 0', textAlign: 'center' }}>{emptyMessage}</p>
       ) : compact ? (
         <div style={{ display: 'grid', gap: 12 }}>
           {items.map(row => (
             <div key={row.participantId} style={{ background: T.surface, borderRadius: 10, padding: 14, border: `1px solid ${T.faint}` }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
-                <div style={{ fontFamily: T.mono, color: T.teal, fontSize: 12 }}>{row.participantId}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 8, alignItems: 'start' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    aria-label={`Select ${row.participantId}`}
+                    checked={isRowSelected(row.participantId)}
+                    onClick={event => event.stopPropagation()}
+                    onChange={event => toggleRow(row.participantId, event)}
+                  />
+                  <span style={{ fontFamily: T.mono, color: T.teal, fontSize: 12 }}>{row.participantId}</span>
+                </label>
                 <span style={{ color: statusColor(row.status), fontSize: 11 }}>{row.status}</span>
               </div>
               <div style={{ fontSize: 13, lineHeight: 1.7 }}>
@@ -223,6 +397,7 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast }) {
                 <div>Sessions: {row.sessions} · Completion: {formatPercent(row.sessionCompletion)}</div>
                 <div>Last active: {row.lastActiveDisplay || (row.sessions ? row.joinedDisplay : 'Never active')}</div>
                 <div>Study Schedule: {row.studyFrequencyLabel || 'Not Selected'}</div>
+                <div>AI Feedback: {row.feedbackStatus || 'Not Released'}</div>
                 <div>Consent: {row.consentRecorded ? 'Recorded' : 'Missing'}</div>
               </div>
               <Btn onClick={() => openDetails(row.participantId)} disabled={detailLoading === row.participantId} style={{ marginTop: 12, fontSize: 12 }}>
@@ -233,9 +408,18 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast }) {
         </div>
       ) : (
         <div style={{ overflowX: 'auto', maxWidth: '100%' }}>
-          <table style={{ width: '100%', minWidth: 1320, borderCollapse: 'collapse', fontSize: 11 }}>
+          <table style={{ width: '100%', minWidth: 1360, borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
               <tr>
+                <th style={{ position: 'sticky', top: 0, background: T.card, zIndex: 1, padding: '8px 6px' }}>
+                  <input
+                    ref={headerCheckboxRef}
+                    type="checkbox"
+                    aria-label="Select all on page"
+                    checked={allPageSelected}
+                    onChange={togglePageSelectAll}
+                  />
+                </th>
                 {COLUMNS.map(([, label, sortKey]) => (
                   <th key={sortKey} style={{ position: 'sticky', top: 0, background: T.card, zIndex: 1 }}>
                     <button
@@ -253,6 +437,15 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast }) {
             <tbody>
               {items.map(row => (
                 <tr key={row.participantId} style={{ borderTop: `1px solid ${T.faint}` }}>
+                  <td style={{ padding: '8px 6px' }}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${row.participantId}`}
+                      checked={isRowSelected(row.participantId)}
+                      onClick={event => event.stopPropagation()}
+                      onChange={event => toggleRow(row.participantId, event)}
+                    />
+                  </td>
                   {COLUMNS.map(([key]) => (
                     <td
                       key={key}
@@ -288,7 +481,13 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast }) {
         <Btn onClick={() => setOffset(offset + limit)} disabled={offset + limit >= total || loading}>Next</Btn>
       </div>
 
-      <ParticipantDetailsPanel detail={detail} onClose={() => setDetail(null)} onRefresh={refreshParticipant} showToast={showToast} />
+      <ParticipantDetailsPanel
+        detail={detail}
+        groqReady={groqReady}
+        onClose={() => setDetail(null)}
+        onRefresh={refreshParticipant}
+        showToast={showToast}
+      />
     </Card>
   );
 }

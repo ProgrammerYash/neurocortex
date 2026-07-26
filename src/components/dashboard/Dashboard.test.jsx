@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Dashboard from './Dashboard.jsx';
 import { fetchMyConsentStatus } from '../../store/consent.js';
 import { fetchUnreadMessageCount } from '../../store/messages.js';
@@ -46,14 +46,17 @@ const baseProps = {
 };
 
 describe('Dashboard', () => {
-  it('renders without crashing when game data includes the pet banner', async () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
     fetchMyConsentStatus.mockResolvedValue({
       consent_recorded: true,
       session_eligible: true,
     });
     fetchUnreadMessageCount.mockResolvedValue({ unread_count: 0 });
     fetchParticipantModelFeedback.mockResolvedValue({ status: 'disabled' });
+  });
 
+  it('renders without crashing when game data includes the pet banner', async () => {
     render(
       <MemoryRouter>
         <Dashboard {...baseProps} />
@@ -63,5 +66,9 @@ describe('Dashboard', () => {
     expect(await screen.findByText('Spark')).toBeInTheDocument();
     expect(screen.getByText(/Your data and the AI model/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Sign Out/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Today' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Enrollment' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Progress' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /NeuroVerse/i })).toHaveLength(1);
   });
 });

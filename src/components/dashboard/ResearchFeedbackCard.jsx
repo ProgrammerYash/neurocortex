@@ -7,9 +7,6 @@ import {
 import { fetchParticipantModelFeedback } from '../../store/participantFeedback.js';
 import Card from '../ui/Card.jsx';
 
-const DISCLAIMER =
-  'This is a research estimate, not a medical or psychological diagnosis.';
-
 export default function ResearchFeedbackCard() {
   const [feedback, setFeedback] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -37,7 +34,7 @@ export default function ResearchFeedbackCard() {
   }, []);
 
   if (loading) return null;
-  if (feedback?.status === 'disabled') return null;
+
   if (error) {
     return (
       <Card style={{ marginBottom: 16 }}>
@@ -47,20 +44,58 @@ export default function ResearchFeedbackCard() {
     );
   }
 
+  if (!feedback?.status || feedback.status === 'disabled') return null;
+
+  const warningText = feedback.warning;
+
   return (
-    <Card style={{ marginBottom: 16 }}>
+    <Card style={{ marginBottom: 16 }} data-testid="research-feedback-card">
       <h2 style={{ fontSize: 16, margin: '0 0 10px' }}>Research Feedback</h2>
-      {feedback?.status === 'insufficient_data' && (
+
+      {feedback.status === 'not_released' && (
+        <p style={{ fontSize: 13, color: T.muted, margin: 0, lineHeight: 1.6 }}>
+          Personalized research feedback has not been released for your account yet. Your study team will share an estimate when it is ready.
+        </p>
+      )}
+
+      {feedback.status === 'insufficient_data' && (
         <>
-          <p style={{ fontWeight: 600, margin: '0 0 6px' }}>{feedback.label || 'Not enough data yet'}</p>
+          {feedback.headline ? (
+            <p style={{ fontWeight: 600, margin: '0 0 6px' }}>{feedback.headline}</p>
+          ) : (
+            <p style={{ fontWeight: 600, margin: '0 0 6px' }}>{feedback.label || 'Not enough data yet'}</p>
+          )}
           <p style={{ fontSize: 13, color: T.muted, margin: '0 0 8px', lineHeight: 1.6 }}>
-            Complete more study sessions before a research estimate can be generated. {PARTICIPANT_AI_TRAINING_DETAIL}
+            {feedback.summary || `Complete more study sessions before a research estimate can be generated. ${PARTICIPANT_AI_TRAINING_DETAIL}`}
           </p>
+          {warningText ? (
+            <p style={{ fontSize: 12, color: T.muted, margin: 0, lineHeight: 1.6 }}>{warningText}</p>
+          ) : null}
         </>
       )}
-      {feedback?.status === 'available' && (
+
+      {feedback.status === 'available' && (
         <>
-          <p style={{ fontWeight: 600, margin: '0 0 6px' }}>{feedback.label}</p>
+          {feedback.level ? (
+            <p style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', color: T.teal, margin: '0 0 6px' }}>
+              {feedback.level.replace(/_/g, ' ')}
+            </p>
+          ) : null}
+          {feedback.headline ? (
+            <p style={{ fontWeight: 600, margin: '0 0 6px' }}>{feedback.headline}</p>
+          ) : feedback.label ? (
+            <p style={{ fontWeight: 600, margin: '0 0 6px' }}>{feedback.label}</p>
+          ) : null}
+          {feedback.summary ? (
+            <p style={{ fontSize: 13, color: T.muted, margin: '0 0 8px', lineHeight: 1.6 }}>{feedback.summary}</p>
+          ) : null}
+          {Array.isArray(feedback.factors) && feedback.factors.length > 0 ? (
+            <ul style={{ fontSize: 13, color: T.muted, margin: '0 0 8px', paddingLeft: 18, lineHeight: 1.6 }}>
+              {feedback.factors.map(factor => (
+                <li key={factor}>{factor}</li>
+              ))}
+            </ul>
+          ) : null}
           {feedback.generated_at && (
             <p style={{ fontSize: 12, color: T.muted, margin: '0 0 8px' }}>
               Updated {new Date(feedback.generated_at).toLocaleString()}
@@ -69,7 +104,9 @@ export default function ResearchFeedbackCard() {
           <p style={{ fontSize: 12, color: T.muted, margin: '0 0 8px', lineHeight: 1.6 }}>
             {PARTICIPANT_AI_FEEDBACK_TRAINING_NOTE}
           </p>
-          <p style={{ fontSize: 12, color: T.muted, margin: 0, lineHeight: 1.6 }}>{DISCLAIMER}</p>
+          {warningText ? (
+            <p style={{ fontSize: 12, color: T.muted, margin: 0, lineHeight: 1.6 }}>{warningText}</p>
+          ) : null}
         </>
       )}
     </Card>

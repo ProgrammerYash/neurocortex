@@ -133,17 +133,16 @@ export default function Dashboard({user,sessions,todaySessions,todayComplete,gam
 
       {/* Tabs */}
       <div style={{display:"flex",gap:4,background:T.surface,padding:4,borderRadius:10,marginBottom:16}}>
-        {["today","progress","study","neuroverse"].map(t=>(
+        {["today","study","progress"].map(t=>(
           <button key={t} onClick={()=>setTab(t)} style={{flex:1,padding:"9px",border:"none",borderRadius:7,fontWeight:500,fontSize:13,cursor:"pointer",background:tab===t?T.card:T.surface,color:tab===t?T.teal:T.muted,transition:"all .2s",textTransform:"capitalize"}}>
-            {t==="neuroverse"?"NeuroVerse":t==="today"?"Today":t==="study"?"Enrollment":"Progress"}
+            {t==="today"?"Today":t==="study"?"Enrollment":"Progress"}
           </button>
         ))}
       </div>
 
       {tab==="today"&&<TodayTab modules={modules} completed={completed} pct={pct} todayComplete={todayComplete} countdown={countdown} isWeeklyDay={isWeeklyDay} hasNasaTLX={hasNasaTLX} onNavigate={onNavigate} sessionBlockMessage={sessionBlockMessage} cognitiveOverloadIndex={cognitiveOverloadIndex} studyScheduleLabel={studyFrequencyLabel(user?.studyFrequency)} />}
-      {tab==="progress"&&<ProgressTab sessions={sessions} />}
       {tab==="study"&&<ConsentStatusTab showToast={showToast} />}
-      {tab==="neuroverse"&&<div style={{textAlign:"center",padding:"2rem"}}><Btn onClick={()=>onNavigate("neuroverse")} primary style={{padding:"14px 32px"}}>Open NeuroVerse 🌐</Btn><br/><Btn onClick={()=>onNavigate("pet")} style={{marginTop:12,padding:"12px 28px"}}>Pet Home 🏠</Btn><br/><Btn onClick={()=>onNavigate("achievements")} style={{marginTop:12,padding:"12px 28px"}}>Achievements 🏆</Btn></div>}
+      {tab==="progress"&&<ProgressTab sessions={sessions} />}
 
       {/* Bottom nav */}
       <div style={{position:"fixed",bottom:0,left:0,right:0,background:T.surface,borderTop:`1px solid ${T.faint}`,display:"flex",justifyContent:"space-around",padding:"10px 0 12px",zIndex:100}}>

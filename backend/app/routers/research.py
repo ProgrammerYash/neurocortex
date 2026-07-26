@@ -58,7 +58,16 @@ from app.services.data_quality_service import (
 )
 from app.services.procedure_service import get_active_procedure_for_researcher
 from app.schemas.study import StudyConfigResponse
-from app.schemas.study_settings import StudySettingsResponse, StudySettingsUpdateRequest
+from app.schemas.bulk import (
+    BulkActionResult,
+    BulkEmailRequest,
+    BulkMessageRequest,
+    BulkReactivateRequest,
+    BulkRemoveRequest,
+    BulkSelectionRequest,
+    BulkSuspendRequest,
+)
+from app.schemas.participant_feedback import GroqProviderStatusResponse
 from app.services.ml_dataset_service import (
     DatasetError,
     create_dataset,
@@ -125,12 +134,24 @@ from app.services.researcher_dashboard_service import (
     get_dashboard_summary,
     list_dashboard_participants,
 )
-from app.services.study_settings_service import (
-    StudySettingsError,
-    get_study_settings,
-    update_participant_feedback_enabled,
+from app.services.participant_bulk_service import (
+    BulkActionError,
+    bulk_email,
+    bulk_message,
+    bulk_reactivate,
+    bulk_refresh_feedback,
+    bulk_release_feedback,
+    bulk_remove,
+    bulk_revoke_feedback,
+    bulk_suspend,
 )
-from app.services.participant_feedback_service import researcher_feedback_summary
+from app.services.participant_feedback_service import (
+    ParticipantFeedbackError,
+    refresh_participant_feedback,
+    release_participant_feedback,
+    revoke_participant_feedback,
+)
+from app.services.groq_provider_service import get_groq_provider_status
 from app.services.consent_service import (
     ConsentError,
     build_consent_status,
@@ -327,45 +348,233 @@ def get_dashboard_summary_endpoint(
     return DashboardSummaryResponse(**get_dashboard_summary(db))
 
 
-@router.get("/study-settings", response_model=StudySettingsResponse)
-def get_research_study_settings(
+@router.get("/feedback/provider-status", response_model=GroqProviderStatusResponse)
+def get_groq_feedback_provider_status(
     _researcher: Researcher = Depends(get_current_researcher),
-    db: Session = Depends(get_db),
-) -> StudySettingsResponse:
-    settings = get_study_settings(db)
-    meta = researcher_feedback_summary(db)
-    return StudySettingsResponse(
-        participant_feedback_enabled=settings.participant_feedback_enabled,
-        participant_feedback_updated_at=settings.participant_feedback_updated_at,
-        participant_feedback_updated_by=settings.participant_feedback_updated_by,
-        model_configured=meta["model_configured"],
-        model_version=meta.get("model_version"),
-    )
+) -> GroqProviderStatusResponse:
+    return GroqProviderStatusResponse(**get_groq_provider_status())
 
 
-@router.patch("/study-settings", response_model=StudySettingsResponse)
-def update_research_study_settings(
-    payload: StudySettingsUpdateRequest,
+@router.post("/participants/{public_id}/feedback/release")
+def release_participant_feedback_endpoint(
+    public_id: str,
     researcher: Researcher = Depends(get_current_researcher),
     db: Session = Depends(get_db),
-) -> StudySettingsResponse:
+):
     try:
-        update_participant_feedback_enabled(
-            db,
-            enabled=payload.participant_feedback_enabled,
-            researcher_id=researcher.id,
-        )
-    except StudySettingsError as exc:
+        participant = get_participant_by_public_id(db, public_id)
+        snapshot = release_participant_feedback(db, participant=participant, researcher_id=researcher.id)
+    except ConsentError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
-    settings = get_study_settings(db)
-    meta = researcher_feedback_summary(db)
-    return StudySettingsResponse(
-        participant_feedback_enabled=settings.participant_feedback_enabled,
-        participant_feedback_updated_at=settings.participant_feedback_updated_at,
-        participant_feedback_updated_by=settings.participant_feedback_updated_by,
-        model_configured=meta["model_configured"],
-        model_version=meta.get("model_version"),
-    )
+    except ParticipantFeedbackError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    return {"status": snapshot.status, "snapshot_id": str(snapshot.id)}
+
+
+@router.post("/participants/{public_id}/feedback/refresh")
+def refresh_participant_feedback_endpoint(
+    public_id: str,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+):
+    try:
+        participant = get_participant_by_public_id(db, public_id)
+        snapshot = refresh_participant_feedback(db, participant=participant, researcher_id=researcher.id)
+    except ConsentError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    except ParticipantFeedbackError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    return {"status": snapshot.status, "snapshot_id": str(snapshot.id)}
+
+
+@router.post("/participants/{public_id}/feedback/revoke")
+def revoke_participant_feedback_endpoint(
+    public_id: str,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+):
+    try:
+        participant = get_participant_by_public_id(db, public_id)
+        revoke_participant_feedback(db, participant=participant, researcher_id=researcher.id)
+    except ConsentError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    return {"status": "revoked"}
+
+
+@router.post("/participants/feedback/release-bulk", response_model=BulkActionResult)
+def release_feedback_bulk(
+    payload: BulkSelectionRequest,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+) -> BulkActionResult:
+    try:
+        return BulkActionResult(
+            **bulk_release_feedback(
+                db,
+                researcher=researcher,
+                participant_public_ids=payload.participant_public_ids,
+                selection_mode=payload.selection_mode,
+                filters=payload.filters,
+                excluded_public_ids=payload.excluded_public_ids,
+            )
+        )
+    except BulkActionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+
+@router.post("/participants/feedback/revoke-bulk", response_model=BulkActionResult)
+def revoke_feedback_bulk(
+    payload: BulkSelectionRequest,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+) -> BulkActionResult:
+    try:
+        return BulkActionResult(
+            **bulk_revoke_feedback(
+                db,
+                researcher=researcher,
+                participant_public_ids=payload.participant_public_ids,
+                selection_mode=payload.selection_mode,
+                filters=payload.filters,
+                excluded_public_ids=payload.excluded_public_ids,
+            )
+        )
+    except BulkActionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+
+@router.post("/participants/feedback/refresh-bulk", response_model=BulkActionResult)
+def refresh_feedback_bulk(
+    payload: BulkSelectionRequest,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+) -> BulkActionResult:
+    try:
+        return BulkActionResult(
+            **bulk_refresh_feedback(
+                db,
+                researcher=researcher,
+                participant_public_ids=payload.participant_public_ids,
+                selection_mode=payload.selection_mode,
+                filters=payload.filters,
+                excluded_public_ids=payload.excluded_public_ids,
+            )
+        )
+    except BulkActionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+
+@router.post("/participants/bulk/message", response_model=BulkActionResult)
+def bulk_message_endpoint(
+    payload: BulkMessageRequest,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+) -> BulkActionResult:
+    try:
+        return BulkActionResult(
+            **bulk_message(
+                db,
+                researcher=researcher,
+                participant_public_ids=payload.participant_public_ids,
+                selection_mode=payload.selection_mode,
+                filters=payload.filters,
+                excluded_public_ids=payload.excluded_public_ids,
+                subject=payload.subject,
+                body=payload.body,
+            )
+        )
+    except BulkActionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+
+@router.post("/participants/bulk/email", response_model=BulkActionResult)
+def bulk_email_endpoint(
+    payload: BulkEmailRequest,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+) -> BulkActionResult:
+    try:
+        return BulkActionResult(
+            **bulk_email(
+                db,
+                researcher=researcher,
+                participant_public_ids=payload.participant_public_ids,
+                selection_mode=payload.selection_mode,
+                filters=payload.filters,
+                excluded_public_ids=payload.excluded_public_ids,
+                subject=payload.subject,
+                body=payload.body,
+            )
+        )
+    except BulkActionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+
+@router.post("/participants/bulk/suspend", response_model=BulkActionResult)
+def bulk_suspend_endpoint(
+    payload: BulkSuspendRequest,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+) -> BulkActionResult:
+    try:
+        return BulkActionResult(
+            **bulk_suspend(
+                db,
+                researcher=researcher,
+                participant_public_ids=payload.participant_public_ids,
+                selection_mode=payload.selection_mode,
+                filters=payload.filters,
+                excluded_public_ids=payload.excluded_public_ids,
+                duration=payload.duration,
+                reason=payload.reason,
+            )
+        )
+    except BulkActionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+
+@router.post("/participants/bulk/reactivate", response_model=BulkActionResult)
+def bulk_reactivate_endpoint(
+    payload: BulkReactivateRequest,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+) -> BulkActionResult:
+    try:
+        return BulkActionResult(
+            **bulk_reactivate(
+                db,
+                researcher=researcher,
+                participant_public_ids=payload.participant_public_ids,
+                selection_mode=payload.selection_mode,
+                filters=payload.filters,
+                excluded_public_ids=payload.excluded_public_ids,
+                reason=payload.reason,
+            )
+        )
+    except BulkActionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+
+@router.post("/participants/bulk/remove", response_model=BulkActionResult)
+def bulk_remove_endpoint(
+    payload: BulkRemoveRequest,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+) -> BulkActionResult:
+    try:
+        return BulkActionResult(
+            **bulk_remove(
+                db,
+                researcher=researcher,
+                participant_public_ids=payload.participant_public_ids,
+                selection_mode=payload.selection_mode,
+                filters=payload.filters,
+                excluded_public_ids=payload.excluded_public_ids,
+                reason=payload.reason,
+            )
+        )
+    except BulkActionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
 
 @router.get("/dashboard/participants", response_model=DashboardParticipantsPage)

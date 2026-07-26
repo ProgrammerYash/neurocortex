@@ -114,6 +114,16 @@ describe('PublicHome presentation content', () => {
     fireEvent.click(screen.getByRole('navigation', { name: 'Mobile' }).querySelector('a[href="/"]'));
     expect(screen.queryByRole('button', { name: 'Close menu' })).not.toBeInTheDocument();
   });
+
+  it('shows four hero actions including Researcher Access and no footer link', () => {
+    renderAt('/', <PublicHome />);
+    const hero = document.querySelector('.home-hero__actions');
+    expect(hero?.querySelectorAll('button')).toHaveLength(4);
+    expect(hero?.querySelector('button')?.textContent).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Researcher Access' }).length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText('NeuroCortex research project website')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Researcher access' })).not.toBeInTheDocument();
+  });
 });
 
 describe('Researcher access routing UI', () => {

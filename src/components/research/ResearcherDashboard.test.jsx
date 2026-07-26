@@ -6,9 +6,8 @@ import {
   fetchDashboardParticipantDetail,
   fetchDashboardParticipants,
   fetchDashboardSummary,
+  fetchGroqProviderStatus,
   fetchParticipantAccountActions,
-  fetchStudySettings,
-  updateStudySettings,
 } from '../../store/research.js';
 
 vi.mock('../../store/research.js', () => ({
@@ -16,8 +15,19 @@ vi.mock('../../store/research.js', () => ({
   fetchDashboardParticipants: vi.fn(),
   fetchDashboardParticipantDetail: vi.fn(),
   fetchParticipantAccountActions: vi.fn(),
-  fetchStudySettings: vi.fn(),
-  updateStudySettings: vi.fn(),
+  fetchGroqProviderStatus: vi.fn(),
+  buildBulkSelectionPayload: vi.fn(payload => payload),
+  bulkMessageParticipants: vi.fn(),
+  bulkEmailParticipants: vi.fn(),
+  bulkReleaseFeedback: vi.fn(),
+  bulkRevokeFeedback: vi.fn(),
+  bulkRefreshFeedback: vi.fn(),
+  bulkSuspendParticipants: vi.fn(),
+  bulkReactivateParticipants: vi.fn(),
+  bulkRemoveParticipants: vi.fn(),
+  releaseParticipantFeedback: vi.fn(),
+  refreshParticipantFeedback: vi.fn(),
+  revokeParticipantFeedback: vi.fn(),
 }));
 
 vi.mock('../../store/consent.js', () => ({
@@ -27,6 +37,7 @@ vi.mock('../../store/consent.js', () => ({
 const summary = {
   totalParticipants: 2,
   totalSessions: 3,
+  totalCompletedSessions: 2,
   activeParticipants7d: 1,
   averageSessionCompletion: 66.7,
   averageReactionTimeMs: 245,
@@ -34,6 +45,9 @@ const summary = {
   averageFatigue: 5.2,
   averageSleepHours: 7.3,
   averageMemoryAccuracy: 84.7,
+  groqFeedbackStatus: 'not_configured',
+  groqFeedbackConfigured: false,
+  groqModel: null,
 };
 
 const participantRow = {
@@ -53,6 +67,7 @@ const participantRow = {
   averageSleepHours: 7.3,
   averageMemoryAccuracy: 84.7,
   sessionCompletion: 50,
+  feedbackStatus: 'Released',
 };
 
 describe('ResearcherDashboard', () => {
@@ -63,10 +78,11 @@ describe('ResearcherDashboard', () => {
 
   beforeEach(() => {
     fetchDashboardSummary.mockResolvedValue(summary);
-    fetchStudySettings.mockResolvedValue({
-      participant_feedback_enabled: false,
-      model_configured: false,
-      model_version: null,
+    fetchGroqProviderStatus.mockResolvedValue({
+      configured: false,
+      provider: 'Groq',
+      status: 'not_configured',
+      model: null,
     });
     fetchDashboardParticipants.mockResolvedValue({ items: [participantRow], total: 1, limit: 20, offset: 0 });
     fetchParticipantAccountActions.mockResolvedValue({ items: [] });
@@ -89,7 +105,8 @@ describe('ResearcherDashboard', () => {
   it('renders summary cards without tab navigation', async () => {
     render(<ResearcherDashboard onBack={() => {}} />);
     expect(await screen.findByText('Total Participants')).toBeInTheDocument();
-    expect(await screen.findByText('Release Participant Feedback')).toBeInTheDocument();
+    expect(await screen.findByText('Groq Participant Feedback')).toBeInTheDocument();
+    expect(await screen.findByText('Completed Sessions')).toBeInTheDocument();
     expect(screen.getByText('Average Memory Accuracy')).toBeInTheDocument();
     expect(screen.queryByText('ML / SHAP')).not.toBeInTheDocument();
     expect(screen.queryByText('Consent Forms')).not.toBeInTheDocument();

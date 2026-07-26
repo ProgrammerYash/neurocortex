@@ -3,7 +3,7 @@ import { T } from '../../constants/tokens.js';
 import { fetchDashboardSummary } from '../../store/research.js';
 import Btn from '../ui/Btn.jsx';
 import Card from '../ui/Card.jsx';
-import StudyFeedbackControl from './StudyFeedbackControl.jsx';
+import GroqFeedbackStatus from './GroqFeedbackStatus.jsx';
 import ParticipantsSection from './ParticipantsSection.jsx';
 import { formatPercent, formatReaction, formatScale, formatSleep } from './ParticipantDetailsPanel.jsx';
 
@@ -53,6 +53,7 @@ export default function ResearcherDashboard({ onBack, showToast }) {
   const cards = [
     { label: 'Total Participants', value: summaryValue('Total Participants', summary?.totalParticipants), color: T.teal, icon: '👥' },
     { label: 'Total Sessions', value: summaryValue('Total Sessions', summary?.totalSessions), color: T.blue, icon: '📅' },
+    { label: 'Completed Sessions', value: summaryValue('Completed Sessions', summary?.totalCompletedSessions), color: T.teal, icon: '✔️' },
     { label: 'Active Participants in the Last 7 Days', value: summaryValue('Active', summary?.activeParticipants7d), color: T.green, icon: '✅' },
     { label: 'Average Session Completion', value: summaryValue('Completion', summary?.averageSessionCompletion, formatPercent), color: T.gold, icon: '🏆' },
     { label: 'Average Reaction Time', value: summaryValue('Reaction', summary?.averageReactionTimeMs, formatReaction), color: T.purple, icon: '⚡' },
@@ -82,9 +83,17 @@ export default function ResearcherDashboard({ onBack, showToast }) {
         ))}
       </div>
 
-      <StudyFeedbackControl showToast={showToast} />
+      <GroqFeedbackStatus
+        initialStatus={summary?.groqFeedbackStatus}
+        initialConfigured={summary?.groqFeedbackConfigured}
+        initialModel={summary?.groqModel}
+      />
 
-      <ParticipantsSection onSummaryRefresh={load} showToast={showToast} />
+      <ParticipantsSection
+        onSummaryRefresh={load}
+        showToast={showToast}
+        groqReady={summary?.groqFeedbackStatus === 'ready'}
+      />
     </div>
   );
 }
