@@ -23,6 +23,7 @@ import PetScreen from './components/gamification/PetScreen.jsx';
 import AchievementsScreen from './components/gamification/AchievementsScreen.jsx';
 import NeuroVerse from './components/gamification/NeuroVerse.jsx';
 import ResearcherDashboard from './components/research/ResearcherDashboard.jsx';
+import GoldenVaultPage from './components/golden/GoldenVaultPage.jsx';
 import Toast from './components/ui/Toast.jsx';
 import ChangePinScreen from './components/auth/ChangePinScreen.jsx';
 import ConsentCompletionScreen from './components/consent/ConsentCompletionScreen.jsx';
@@ -403,6 +404,7 @@ export default function App() {
                 </RequireResearcher>
               )}
             />
+            <Route path={ROUTES.goldenVault} element={<GoldenVaultPage />} />
             <Route path="*" element={<Navigate to={ROUTES.home} replace />} />
           </Routes>
         </RouteFocusMain>

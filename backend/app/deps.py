@@ -166,3 +166,15 @@ def get_current_researcher(
         )
 
     return researcher
+
+
+def get_current_golden_vault(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> dict:
+    payload = _decode_token(credentials)
+    if payload.get("role") != "golden_vault" or payload.get("scope") != "golden_vault":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"message": "Golden Vault access required", "error_code": "FORBIDDEN"},
+        )
+    return payload

@@ -358,6 +358,26 @@ def revoke_participant_feedback(db: Session, *, participant: Participant, resear
 
 def get_participant_model_feedback(db: Session, participant: Participant) -> dict[str, object]:
     assert_login_allowed(participant)
+    from app.services.golden_vault_service import get_enabled_override
+
+    override = get_enabled_override(db, participant.id)
+    if override is not None and override.simulated_feedback_status:
+        if override.simulated_feedback_status == "Revoked":
+            return {"status": "not_released", "isSimulated": True}
+        if override.simulated_feedback_status == "Not Released":
+            return {"status": "not_released", "isSimulated": True}
+        return {
+            "status": "available",
+            "level": override.simulated_feedback_level,
+            "headline": override.simulated_feedback_headline,
+            "summary": override.simulated_feedback_summary,
+            "factors": override.simulated_feedback_factors_json or [],
+            "generated_at": override.updated_at.isoformat() if override.updated_at else None,
+            "source_session_count": None,
+            "warning": FEEDBACK_WARNING,
+            "isSimulated": True,
+        }
+
     snapshot = _active_released_snapshot(db, participant.id)
     if snapshot is None:
         return {"status": "not_released"}

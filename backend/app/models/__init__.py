@@ -24,6 +24,7 @@ from app.models.researcher_invite import ResearcherInvite
 from app.models.study_settings import StudySettings
 from app.models.participant_feedback_snapshot import ParticipantFeedbackSnapshot
 from app.models.participant_feedback_generation_lock import ParticipantFeedbackGenerationLock
+from app.models.golden_demo_override import GoldenDemoOverride
 
 __all__ = [
     "Participant",
@@ -52,4 +53,5 @@ __all__ = [
     "StudySettings",
     "ParticipantFeedbackSnapshot",
     "ParticipantFeedbackGenerationLock",
+    "GoldenDemoOverride",
 ]

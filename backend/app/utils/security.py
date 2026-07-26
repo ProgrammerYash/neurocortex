@@ -53,6 +53,18 @@ def create_researcher_access_token(*, researcher_id: UUID, display_name: str) ->
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
+def create_golden_vault_access_token(*, expires_minutes: int | None = None) -> str:
+    minutes = expires_minutes if expires_minutes is not None else settings.golden_vault_token_minutes
+    expire = datetime.now(UTC) + timedelta(minutes=minutes)
+    payload: dict[str, Any] = {
+        "sub": "golden-vault",
+        "role": "golden_vault",
+        "scope": "golden_vault",
+        "exp": int(expire.timestamp()),
+    }
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
 def decode_access_token(token: str) -> dict[str, Any]:
     return jwt.decode(
         token,

@@ -14,6 +14,7 @@ backend/generated/
 # Environment files
 .env
 backend/.env
+backend/.golden_vault_local
 
 # Python
 __pycache__/

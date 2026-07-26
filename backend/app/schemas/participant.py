@@ -18,6 +18,7 @@ class ParticipantMeResponse(BaseModel):
     must_change_pin: bool
     account_status: str
     study_frequency: str | None = None
+    demo_account: bool = False
 
     @classmethod
     def from_participant(
@@ -28,6 +29,7 @@ class ParticipantMeResponse(BaseModel):
         withdrawal_status: str | None = None,
         last_active_at: datetime | None = None,
         sessions_started: int = 0,
+        demo_account: bool = False,
     ) -> "ParticipantMeResponse":
         status = resolve_display_status(
             participant,
@@ -46,6 +48,7 @@ class ParticipantMeResponse(BaseModel):
             must_change_pin=participant.must_change_pin,
             account_status=status,
             study_frequency=participant.study_frequency,
+            demo_account=demo_account,
         )
 
 

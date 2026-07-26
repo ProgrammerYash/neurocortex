@@ -68,6 +68,10 @@ class Settings(BaseSettings):
     smtp_password: str | None = Field(default=None, validation_alias="SMTP_PASSWORD")
     smtp_from_email: str | None = Field(default=None, validation_alias="SMTP_FROM_EMAIL")
     smtp_use_tls: bool = Field(default=True, validation_alias="SMTP_USE_TLS")
+    golden_vault_enabled: bool = Field(default=False, validation_alias="GOLDEN_VAULT_ENABLED")
+    golden_vault_code_hash: str | None = Field(default=None, validation_alias="GOLDEN_VAULT_CODE_HASH")
+    golden_vault_token_minutes: int = Field(default=30, validation_alias="GOLDEN_VAULT_TOKEN_MINUTES")
+    golden_overrides_visible: bool = Field(default=True, validation_alias="GOLDEN_OVERRIDES_VISIBLE")
 
     @model_validator(mode="after")
     def apply_study_mode_defaults(self) -> "Settings":

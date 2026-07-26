@@ -79,6 +79,16 @@ function cellValue(row, key) {
   if (key === 'averageMemoryAccuracy' || key === 'sessionCompletion') return formatPercent(row[key]);
   if (key === 'consentRecorded') return row.consentRecorded ? 'Recorded' : 'Missing';
   if (key === 'feedbackStatus') return row.feedbackStatus || 'Not Released';
+  if (key === 'participantId') {
+    return (
+      <>
+        {row.participantId}
+        {row.isDemoOverride && (
+          <span title="Golden Vault demo override active" style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: '#1a1408', background: 'linear-gradient(120deg,#f5e6a8,#d4af37)', padding: '1px 5px', borderRadius: 4 }}>Demo</span>
+        )}
+      </>
+    );
+  }
   return row[key] ?? '—';
 }
 

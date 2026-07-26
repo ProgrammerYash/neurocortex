@@ -17,35 +17,6 @@ from tests.test_electronic_consent import register, registration_payload
 from tests.test_researcher_dashboard import researcher_headers
 
 
-@pytest.fixture()
-def db() -> Session:
-    connection = engine.connect()
-    transaction = connection.begin()
-    session = Session(
-        bind=connection,
-        expire_on_commit=False,
-        join_transaction_mode="create_savepoint",
-    )
-    try:
-        yield session
-    finally:
-        session.close()
-        transaction.rollback()
-        connection.close()
-
-
-@pytest.fixture()
-def client(db: Session):
-    def override_db():
-        yield db
-
-    app.dependency_overrides[get_db] = override_db
-    try:
-        with TestClient(app) as test_client:
-            yield test_client
-    finally:
-        app.dependency_overrides.clear()
-
 
 @pytest.fixture()
 def researcher(db: Session) -> Researcher:
@@ -367,6 +338,21 @@ def test_message_creation_does_not_expose_internal_participant_uuid(
     assert str(participant.id) not in response.text
 
 
+def test_message_count_scoped_to_participant(client: TestClient, db: Session, researcher: Researcher):
+    """Regression: message totals must not include rows from other participants."""
+    first, _ = enrolled(client, db)
+    second, _ = enrolled(client, db)
+    headers = researcher_headers(researcher)
+    assert send_message(client, headers=headers, public_id=first.public_id).status_code == 201
+    assert send_message(client, headers=headers, public_id=second.public_id).status_code == 201
+    count_first = db.execute(
+        select(func.count())
+        .select_from(ParticipantMessage)
+        .where(ParticipantMessage.participant_id == first.id)
+    ).scalar_one()
+    assert count_first == 1
+
+
 def test_account_removal_preserves_existing_message_records(
     client: TestClient,
     db: Session,
@@ -380,7 +366,11 @@ def test_account_removal_preserves_existing_message_records(
         headers=headers,
         json={"reason": "Removal preserves history", "confirmation_public_id": participant.public_id},
     ).status_code == 200
-    count = db.execute(select(func.count()).select_from(ParticipantMessage)).scalar_one()
+    count = db.execute(
+        select(func.count())
+        .select_from(ParticipantMessage)
+        .where(ParticipantMessage.participant_id == participant.id)
+    ).scalar_one()
     assert count == 1
     history = client.get(
         f"/v1/research/dashboard/participants/{participant.public_id}/messages",

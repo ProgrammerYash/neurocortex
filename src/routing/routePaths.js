@@ -19,6 +19,7 @@ export const ROUTES = {
   nasaTlx: '/participant/session/nasa-tlx',
   researcherSignIn: '/researcher/sign-in',
   researcherDashboard: '/researcher/dashboard',
+  goldenVault: '/golden-vault',
 };
 
 export const MODULE_SCREEN_TO_PATH = {

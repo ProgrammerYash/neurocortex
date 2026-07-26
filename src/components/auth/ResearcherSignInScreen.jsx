@@ -9,6 +9,7 @@ import Btn from '../ui/Btn.jsx';
 import SectionTitle from '../ui/SectionTitle.jsx';
 import Label from '../ui/Label.jsx';
 import { ROUTES } from '../../routing/routePaths.js';
+import { loginGoldenVaultWithApi } from '../../store/goldenVault.js';
 
 export default function ResearcherSignInScreen({ onLogin, onBack }) {
   const [resCode, setResCode] = useState('');
@@ -26,7 +27,13 @@ export default function ResearcherSignInScreen({ onLogin, onBack }) {
       await onLogin(await Store.loginResearcher({ inviteCode: resCode }));
       navigate(ROUTES.researcherDashboard, { replace: true });
     } catch (error) {
-      setFormError(error instanceof ApiError ? error.message : error?.message || 'Researcher sign-in failed. Please try again.');
+      try {
+        await loginGoldenVaultWithApi({ code: resCode });
+        navigate(ROUTES.goldenVault, { replace: true });
+        return;
+      } catch {
+        setFormError(error instanceof ApiError ? error.message : error?.message || 'Researcher sign-in failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

@@ -413,7 +413,15 @@ def _compute_rows(db: Session, participants: list[Participant]) -> list[dict[str
         load_feedback_status_map,
     )
 
+    from app.services.golden_vault_display_service import (
+        apply_display_to_dashboard_row,
+        resolve_participant_display_metrics,
+    )
+    from app.services.golden_vault_service import load_overrides_map
+
     feedback_map = load_feedback_status_map(db, participant_ids)
+    override_map = load_overrides_map(db, participant_ids)
+
     for participant in participants:
         metrics = _aggregate_sessions(sessions_map.get(participant.id, []))
         row = _build_participant_row(
@@ -423,6 +431,19 @@ def _compute_rows(db: Session, participants: list[Participant]) -> list[dict[str
             metrics=metrics,
         )
         row["feedbackStatus"] = feedback_map.get(participant.id, RESEARCHER_STATUS_NOT_RELEASED)
+        override = override_map.get(participant.id)
+        display = resolve_participant_display_metrics(
+            participant=participant,
+            real_metrics={
+                "sessions_completed": metrics["sessions_completed"],
+                "sessions_started": metrics["sessions_started"],
+                "status": row["status"],
+            },
+            golden_override=override,
+        )
+        apply_display_to_dashboard_row(row, display)
+        if display.get("isDemoOverride") and display.get("feedbackStatus"):
+            row["feedbackStatus"] = display["feedbackStatus"]
         rows.append(row)
     return rows
 
@@ -484,9 +505,14 @@ def get_dashboard_summary(db: Session) -> dict[str, Any]:
     visible_rows = [row for row in rows if row["status"] != "Removed"]
     summary = _summary_from_rows(visible_rows)
     feedback = researcher_feedback_summary(db)
+    real_total = count_all_study_completed_sessions(db)
+    demo_bonus = sum(int(row.get("bonusSessions") or 0) for row in visible_rows if row.get("isDemoOverride"))
     summary.update(
         {
-            "totalCompletedSessions": count_all_study_completed_sessions(db),
+            "totalCompletedSessions": real_total + demo_bonus,
+            "realCompletedSessions": real_total,
+            "demoBonusSessions": demo_bonus,
+            "completedSessions": real_total + demo_bonus,
             "groqFeedbackStatus": feedback["groq_feedback_status"],
             "groqFeedbackConfigured": feedback["groq_feedback_configured"],
             "groqModel": feedback.get("groq_model"),
@@ -544,7 +570,14 @@ def get_dashboard_participant_detail(db: Session, public_id: str) -> dict[str, A
         "consentStudentSignedDisplay": format_study_datetime(consent.participant_signed_at) if consent else None,
         "consentGuardianSignedDisplay": format_study_datetime(consent.guardian_signed_at) if consent else None,
         "sessionsStarted": metrics["sessions_started"],
-        "sessionsCompleted": metrics["sessions_completed"],
+        "sessionsCompleted": row.get("displayedCompletedSessions", metrics["sessions_completed"]),
+        "realCompletedSessions": row.get("realCompletedSessions", metrics["sessions_completed"]),
+        "bonusSessions": row.get("bonusSessions", 0),
+        "displayedCompletedSessions": row.get(
+            "displayedCompletedSessions",
+            metrics["sessions_completed"],
+        ),
+        "isDemoOverride": bool(row.get("isDemoOverride")),
         "recentSessions": [
             {
                 "date": entry["date"],

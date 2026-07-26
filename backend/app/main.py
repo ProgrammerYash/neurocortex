@@ -11,6 +11,7 @@ from app.routers import (
     research_documents,
     researcher_auth,
     researcher_consents,
+    golden_vault,
 )
 
 settings = get_settings()
@@ -49,3 +50,4 @@ app.include_router(participants.router, prefix=settings.api_prefix)
 app.include_router(researcher_consents.router, prefix=settings.api_prefix)
 app.include_router(research.router, prefix=settings.api_prefix)
 app.include_router(research_documents.router, prefix=settings.api_prefix)
+app.include_router(golden_vault.router, prefix=settings.api_prefix)

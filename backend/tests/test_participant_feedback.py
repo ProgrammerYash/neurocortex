@@ -15,35 +15,6 @@ from app.utils.security import create_researcher_access_token
 from tests.test_electronic_consent import register
 
 
-@pytest.fixture()
-def db() -> Session:
-    connection = engine.connect()
-    transaction = connection.begin()
-    session = Session(
-        bind=connection,
-        expire_on_commit=False,
-        join_transaction_mode="create_savepoint",
-    )
-    try:
-        yield session
-    finally:
-        session.close()
-        transaction.rollback()
-        connection.close()
-
-
-@pytest.fixture()
-def client(db: Session):
-    def override_db():
-        yield db
-
-    app.dependency_overrides[get_db] = override_db
-    try:
-        with TestClient(app) as test_client:
-            yield test_client
-    finally:
-        app.dependency_overrides.clear()
-
 
 @pytest.fixture()
 def researcher(db: Session) -> Researcher:

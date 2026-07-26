@@ -30,6 +30,7 @@ from app.models import (  # noqa: F401 — register models with metadata
     StudySettings,
     ParticipantFeedbackSnapshot,
     ParticipantFeedbackGenerationLock,
+    GoldenDemoOverride,
 )
 
 config = context.config

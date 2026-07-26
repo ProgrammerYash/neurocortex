@@ -15,6 +15,8 @@ from app.schemas.participant import ParticipantMeResponse, ParticipantPreference
 from app.schemas.message import MessagePage, MessageResponse, UnreadCountResponse
 from app.schemas.session import DailySessionRecord, ModuleUpsertRequest, VALID_MODULE_KEYS
 from app.services.game_service import GameDataError, get_participant_game_data, upsert_participant_game_data
+from app.services.golden_vault_display_service import apply_display_to_game_data
+from app.services.golden_vault_service import get_enabled_override
 from app.services.consent_service import (
     ConsentError,
     build_consent_status,
@@ -123,10 +125,12 @@ def get_me(
     db: Session = Depends(get_db),
 ) -> ParticipantMeResponse:
     consent = build_consent_status(db, participant)
+    demo = get_enabled_override(db, participant.id) is not None
     return ParticipantMeResponse.from_participant(
         participant,
         consent_recorded=has_current_consent(db, participant.id),
         withdrawal_status=consent.get("withdrawal_status"),
+        demo_account=demo,
     )
 
 
@@ -250,7 +254,9 @@ def get_my_game(
     participant: Participant = Depends(get_current_participant),
     db: Session = Depends(get_db),
 ) -> dict | None:
-    return get_participant_game_data(db, participant)
+    raw = get_participant_game_data(db, participant)
+    override = get_enabled_override(db, participant.id)
+    return apply_display_to_game_data(raw, override)
 
 
 @router.put("/me/game", response_model=GameDataPayload)
@@ -260,7 +266,13 @@ def upsert_my_game(
     db: Session = Depends(get_db),
 ) -> dict:
     try:
-        return upsert_participant_game_data(db, participant, payload.model_dump())
+        body = payload.model_dump()
+        override = get_enabled_override(db, participant.id)
+        if override is not None and body.get("coins") is not None:
+            bonus = max(0, int(override.bonus_coins or 0))
+            body["coins"] = max(0, int(body["coins"]) - bonus)
+        saved = upsert_participant_game_data(db, participant, body)
+        return apply_display_to_game_data(saved, override)
     except GameDataError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
     except Exception as exc:

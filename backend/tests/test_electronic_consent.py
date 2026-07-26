@@ -14,8 +14,6 @@ from pypdf import PdfReader
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.database import engine, get_db
-from app.main import app
 from app.models.consent_record import ConsentRecord
 from app.models.participant import Participant
 from app.models.researcher import Researcher
@@ -70,38 +68,17 @@ def registration_payload(**overrides) -> dict:
     return payload
 
 
-@pytest.fixture()
-def db() -> Session:
-    connection = engine.connect()
-    transaction = connection.begin()
-    session = Session(
-        bind=connection,
-        expire_on_commit=False,
-        join_transaction_mode="create_savepoint",
-    )
-    try:
-        yield session
-    finally:
-        session.close()
-        transaction.rollback()
-        connection.close()
-
-
-@pytest.fixture()
-def client(db: Session):
-    def override_db():
-        yield db
-
-    app.dependency_overrides[get_db] = override_db
-    try:
-        with TestClient(app) as test_client:
-            yield test_client
-    finally:
-        app.dependency_overrides.clear()
-
-
 def register(client: TestClient, payload: dict | None = None):
     return client.post("/v1/auth/participant/register", json=payload or registration_payload())
+
+
+def consent_record_for_public_id(db: Session, public_id: str) -> ConsentRecord:
+    participant = db.execute(
+        select(Participant).where(Participant.public_id == public_id)
+    ).scalar_one()
+    return db.execute(
+        select(ConsentRecord).where(ConsentRecord.participant_id == participant.id)
+    ).scalar_one()
 
 
 def test_current_consent_endpoint_matches_approved_template(client: TestClient):
@@ -239,6 +216,7 @@ def test_registration_rolls_back_when_pdf_generation_fails(
     monkeypatch: pytest.MonkeyPatch,
 ):
     before = db.execute(select(func.count()).select_from(Participant)).scalar_one()
+    before_consent = db.execute(select(func.count()).select_from(ConsentRecord)).scalar_one()
 
     def fail(**_kwargs):
         raise RuntimeError("private failure")
@@ -252,12 +230,13 @@ def test_registration_rolls_back_when_pdf_generation_fails(
     assert "private failure" not in response.text
     after = db.execute(select(func.count()).select_from(Participant)).scalar_one()
     assert after == before
-    assert db.execute(select(func.count()).select_from(ConsentRecord)).scalar_one() == 0
+    assert db.execute(select(func.count()).select_from(ConsentRecord)).scalar_one() == before_consent
 
 
 def test_completed_consent_pdf_is_immutable(client: TestClient, db: Session):
-    assert register(client).status_code == 201
-    record = db.execute(select(ConsentRecord)).scalar_one()
+    registered = register(client)
+    assert registered.status_code == 201
+    record = consent_record_for_public_id(db, registered.json()["public_id"])
     record.pdf_bytes = b"%PDF-mutated"
     with pytest.raises(ValueError, match="immutable"):
         db.flush()
@@ -332,7 +311,7 @@ def test_researcher_metadata_pdf_download_zip_and_participant_denial(
     participant_headers = {
         "Authorization": f"Bearer {registered.json()['access_token']}"
     }
-    record = db.execute(select(ConsentRecord)).scalar_one()
+    record = consent_record_for_public_id(db, registered.json()["public_id"])
     researcher = Researcher(display_name="Consent Tester", email=f"{uuid4()}@example.test")
     db.add(researcher)
     db.commit()
@@ -405,7 +384,7 @@ def test_download_all_zero_records_returns_manifest_only_zip(
 ):
     researcher = Researcher(display_name="Empty Archive Tester")
     db.add(researcher)
-    db.commit()
+    db.flush()
     headers = {
         "Authorization": "Bearer "
         + create_researcher_access_token(
@@ -434,7 +413,7 @@ def test_delivery_pdf_bytes_reduces_legacy_two_page_record_without_mutating_stor
 ):
     registered = register(client)
     assert registered.status_code == 201, registered.text
-    record = db.execute(select(ConsentRecord)).scalar_one()
+    record = consent_record_for_public_id(db, registered.json()["public_id"])
     original_bytes = bytes(record.pdf_bytes)
     original_hash = record.pdf_sha256
     assert len(PdfReader(io.BytesIO(original_bytes)).pages) == 1

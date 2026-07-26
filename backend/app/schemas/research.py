@@ -33,6 +33,9 @@ class DashboardSummaryResponse(BaseModel):
     averageSleepHours: float | None = None
     averageMemoryAccuracy: float | None = None
     totalCompletedSessions: int = 0
+    realCompletedSessions: int | None = None
+    demoBonusSessions: int | None = None
+    completedSessions: int | None = None
     groqFeedbackStatus: str = "not_configured"
     groqFeedbackConfigured: bool = False
     groqModel: str | None = None
@@ -62,6 +65,10 @@ class DashboardParticipantRow(BaseModel):
     studyFrequency: str | None = None
     studyFrequencyLabel: str = "Not Selected"
     feedbackStatus: str = "Not Released"
+    isDemoOverride: bool = False
+    bonusSessions: int | None = None
+    realCompletedSessions: int | None = None
+    displayedCompletedSessions: int | None = None
 
 
 class DashboardParticipantsPage(BaseModel):
@@ -122,3 +129,7 @@ class DashboardParticipantDetail(BaseModel):
     studyFrequency: str | None = None
     studyFrequencyLabel: str = "Not Selected"
     feedbackStatus: str = "Not Released"
+    isDemoOverride: bool = False
+    bonusSessions: int | None = None
+    realCompletedSessions: int | None = None
+    displayedCompletedSessions: int | None = None

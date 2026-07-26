@@ -20,3 +20,4 @@ class ParticipantModelFeedbackResponse(BaseModel):
     generated_at: str | None = None
     source_session_count: int | None = None
     warning: str | None = None
+    isSimulated: bool | None = None
