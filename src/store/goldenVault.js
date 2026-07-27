@@ -40,7 +40,7 @@ export function isGoldenVaultAuthed() {
   }
 }
 
-async function goldenApiRequest(path, { method = 'GET', body, auth = true } = {}) {
+async function goldenApiRequest(path, { method = 'GET', body, auth = true, signal } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (auth) {
     const token = getGoldenVaultToken();
@@ -50,6 +50,7 @@ async function goldenApiRequest(path, { method = 'GET', body, auth = true } = {}
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
+    signal,
   });
   let data = null;
   const text = await response.text();
@@ -80,7 +81,7 @@ export async function loginGoldenVaultWithApi({ code }) {
   return data;
 }
 
-export async function fetchGoldenVaultParticipants(params = {}) {
+export async function fetchGoldenVaultParticipants(params = {}, options = {}) {
   const qs = new URLSearchParams({
     limit: String(params.limit ?? 25),
     offset: String(params.offset ?? 0),
@@ -88,7 +89,26 @@ export async function fetchGoldenVaultParticipants(params = {}) {
   if (params.search?.trim()) qs.set('search', params.search.trim());
   if (params.goldenEnabled) qs.set('golden_enabled', params.goldenEnabled);
   if (params.feedbackFilter) qs.set('feedback_filter', params.feedbackFilter);
-  return goldenApiRequest(`/v1/golden-vault/participants?${qs.toString()}`);
+  return goldenApiRequest(`/v1/golden-vault/participants?${qs.toString()}`, { signal: options.signal });
+}
+
+export async function goldenVaultPatchAutoSession(publicId, enabled) {
+  return goldenApiRequest(`/v1/golden-vault/participants/${encodeURIComponent(publicId)}/auto-session`, {
+    method: 'PATCH',
+    body: { enabled },
+  });
+}
+
+export async function goldenVaultRescheduleAutoSession(publicId) {
+  return goldenApiRequest(`/v1/golden-vault/participants/${encodeURIComponent(publicId)}/auto-session/reschedule`, {
+    method: 'POST',
+  });
+}
+
+export async function goldenVaultRunAutoSessionNow(publicId) {
+  return goldenApiRequest(`/v1/golden-vault/participants/${encodeURIComponent(publicId)}/auto-session/run-now`, {
+    method: 'POST',
+  });
 }
 
 export async function goldenVaultBulk(payload) {
@@ -149,8 +169,8 @@ export async function goldenVaultResetParticipant(publicId) {
   });
 }
 
-export async function fetchGoldenVaultAuditHistory() {
-  return goldenApiRequest('/v1/golden-vault/audit-history');
+export async function fetchGoldenVaultAuditHistory(options = {}) {
+  return goldenApiRequest('/v1/golden-vault/audit-history', { signal: options.signal });
 }
 
 export function signOutGoldenVault() {

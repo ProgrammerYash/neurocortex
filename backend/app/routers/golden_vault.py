@@ -11,6 +11,8 @@ from app.deps import get_current_golden_vault
 from app.schemas.golden_vault import (
     GoldenVaultAmountRequest,
     GoldenVaultAuditItem,
+    GoldenVaultAutoSessionPatchRequest,
+    GoldenVaultAutoSessionResponse,
     GoldenVaultBulkRequest,
     GoldenVaultBulkResult,
     GoldenVaultCoinAdjustRequest,
@@ -39,7 +41,11 @@ from app.services.golden_vault_service import (
     reset_all_demo,
     revoke_demo_feedback,
     run_bulk_action,
+    reschedule_auto_session_for_public_id,
+    run_auto_session_now_for_public_id,
+    set_auto_session_enabled,
 )
+from app.services.golden_vault_auto_session_service import process_due_golden_auto_sessions
 
 router = APIRouter(prefix="/golden-vault", tags=["golden-vault"])
 
@@ -221,6 +227,94 @@ def golden_vault_reset_participant(public_id: str, _vault: dict = Depends(get_cu
         _rollback(db)
         raise HTTPException(status_code=exc.status_code, detail={"message": exc.message}) from exc
     return get_vault_participant(db, public_id)
+
+
+def _auto_session_response(db: Session, public_id: str) -> GoldenVaultAutoSessionResponse:
+    row = get_vault_participant(db, public_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"message": "Participant not found"})
+    return GoldenVaultAutoSessionResponse(
+        publicId=row["participantId"],
+        autoSessionEnabled=bool(row.get("autoSessionEnabled")),
+        nextAutoSessionAt=row.get("nextAutoSessionAt"),
+        lastAutoSessionAt=row.get("lastAutoSessionAt"),
+        bonusSessions=int(row.get("bonusSessions") or 0),
+        displayedCompletedSessions=int(row.get("displayedCompletedSessions") or 0),
+    )
+
+
+@router.patch("/participants/{public_id}/auto-session", response_model=GoldenVaultAutoSessionResponse)
+def golden_vault_patch_auto_session(
+    public_id: str,
+    payload: GoldenVaultAutoSessionPatchRequest,
+    _vault: dict = Depends(get_current_golden_vault),
+    db: Session = Depends(get_db),
+) -> GoldenVaultAutoSessionResponse:
+    try:
+        set_auto_session_enabled(db, public_id=public_id, enabled=payload.enabled)
+        _persist(db)
+    except GoldenVaultError as exc:
+        _rollback(db)
+        raise HTTPException(status_code=exc.status_code, detail={"message": exc.message}) from exc
+    return _auto_session_response(db, public_id)
+
+
+@router.post("/participants/{public_id}/auto-session/reschedule", response_model=GoldenVaultAutoSessionResponse)
+def golden_vault_reschedule_auto_session(
+    public_id: str,
+    _vault: dict = Depends(get_current_golden_vault),
+    db: Session = Depends(get_db),
+) -> GoldenVaultAutoSessionResponse:
+    try:
+        reschedule_auto_session_for_public_id(db, public_id=public_id)
+        _persist(db)
+    except GoldenVaultError as exc:
+        _rollback(db)
+        raise HTTPException(status_code=exc.status_code, detail={"message": exc.message}) from exc
+    except ValueError as exc:
+        _rollback(db)
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    return _auto_session_response(db, public_id)
+
+
+@router.post("/participants/{public_id}/auto-session/run-now", response_model=GoldenVaultAutoSessionResponse)
+def golden_vault_run_auto_session_now(
+    public_id: str,
+    _vault: dict = Depends(get_current_golden_vault),
+    db: Session = Depends(get_db),
+) -> GoldenVaultAutoSessionResponse:
+    try:
+        run_auto_session_now_for_public_id(db, public_id=public_id)
+        _persist(db)
+    except GoldenVaultError as exc:
+        _rollback(db)
+        raise HTTPException(status_code=exc.status_code, detail={"message": exc.message}) from exc
+    return _auto_session_response(db, public_id)
+
+
+@router.post("/participants/auto-session/bulk", response_model=GoldenVaultBulkResult)
+def golden_vault_auto_session_bulk(
+    payload: GoldenVaultBulkRequest,
+    _vault: dict = Depends(get_current_golden_vault),
+    db: Session = Depends(get_db),
+) -> GoldenVaultBulkResult:
+    try:
+        result = run_bulk_action(db, payload=payload.model_dump())
+        _persist(db)
+    except GoldenVaultError as exc:
+        _rollback(db)
+        raise HTTPException(status_code=exc.status_code, detail={"message": exc.message}) from exc
+    return GoldenVaultBulkResult(**result)
+
+
+@router.post("/auto-sessions/process-due")
+def golden_vault_process_due_auto_sessions(
+    _vault: dict = Depends(get_current_golden_vault),
+    db: Session = Depends(get_db),
+):
+    summary = process_due_golden_auto_sessions(db)
+    _persist(db)
+    return summary
 
 
 @router.post("/participants/bulk", response_model=GoldenVaultBulkResult)

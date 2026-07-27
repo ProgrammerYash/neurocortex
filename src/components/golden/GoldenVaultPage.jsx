@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import {
   fetchGoldenVaultAuditHistory,
@@ -6,12 +6,15 @@ import {
   goldenVaultAdjustCoins,
   goldenVaultAdjustSessions,
   goldenVaultBulk,
+  goldenVaultPatchAutoSession,
   goldenVaultPatchParticipant,
   goldenVaultRegenerateFeedback,
   goldenVaultRegenerateMetrics,
   goldenVaultReleaseFeedback,
   goldenVaultResetParticipant,
+  goldenVaultRescheduleAutoSession,
   goldenVaultRevokeFeedback,
+  goldenVaultRunAutoSessionNow,
   isGoldenVaultAuthed,
   signOutGoldenVault,
 } from '../../store/goldenVault.js';
@@ -78,10 +81,12 @@ export default function GoldenVaultPage() {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [goldenFilter, setGoldenFilter] = useState('');
   const [feedbackFilter, setFeedbackFilter] = useState('');
   const [loading, setLoading] = useState(true);
+  const [auditLoading, setAuditLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [pendingKey, setPendingKey] = useState('');
@@ -91,7 +96,7 @@ export default function GoldenVaultPage() {
   const [audit, setAudit] = useState([]);
   const [confirm, setConfirm] = useState(null);
   const [amountModal, setAmountModal] = useState(null);
-
+  const loadSeq = useRef(0);
   const authed = isGoldenVaultAuthed();
   const pageIds = useMemo(() => items.map(row => row.participantId), [items]);
   const selectedCount = selectAllMatching ? Math.max(0, total - excluded.size) : selected.size;
@@ -102,7 +107,17 @@ export default function GoldenVaultPage() {
     selectAllMatching ? !excluded.has(id) : selected.has(id)
   ));
 
-  const load = useCallback(async () => {
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(searchInput.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  const mergeParticipantRow = useCallback((publicId, patch) => {
+    setItems(prev => prev.map(row => (row.participantId === publicId ? { ...row, ...patch } : row)));
+  }, []);
+
+  const loadParticipants = useCallback(async () => {
+    const seq = ++loadSeq.current;
     setLoading(true);
     setError('');
     try {
@@ -113,20 +128,42 @@ export default function GoldenVaultPage() {
         limit: 50,
         offset: 0,
       });
+      if (seq !== loadSeq.current) return;
       setItems(Array.isArray(data.items) ? data.items : []);
       setTotal(data.total ?? 0);
-      const history = await fetchGoldenVaultAuditHistory();
-      setAudit(Array.isArray(history) ? history : []);
     } catch (err) {
-      setError(err?.message || 'Failed to load Golden Vault data.');
+      if (seq !== loadSeq.current) return;
+      setError(err?.message || 'Failed to load Golden Vault participants.');
     } finally {
-      setLoading(false);
+      if (seq === loadSeq.current) setLoading(false);
     }
   }, [search, goldenFilter, feedbackFilter]);
 
+  const loadAudit = useCallback(async () => {
+    setAuditLoading(true);
+    try {
+      const history = await fetchGoldenVaultAuditHistory();
+      setAudit(Array.isArray(history) ? history : []);
+    } catch {
+      /* audit is non-blocking */
+    } finally {
+      setAuditLoading(false);
+    }
+  }, []);
+
+  const load = useCallback(async () => {
+    await Promise.all([loadParticipants(), loadAudit()]);
+  }, [loadParticipants, loadAudit]);
+
   useEffect(() => {
-    if (authed) load();
-  }, [authed, load]);
+    if (authed) {
+      loadParticipants();
+    }
+  }, [authed, loadParticipants]);
+
+  useEffect(() => {
+    if (authed) loadAudit();
+  }, [authed, loadAudit]);
 
   if (!authed) {
     return <Navigate to={ROUTES.researcherSignIn} replace />;
@@ -140,7 +177,7 @@ export default function GoldenVaultPage() {
     try {
       await fn();
       setMessage('Saved.');
-      await load();
+      await loadParticipants();
     } catch (err) {
       setError(err?.message || 'Action failed.');
     } finally {
@@ -165,8 +202,8 @@ export default function GoldenVaultPage() {
     setError('');
     try {
       const result = await goldenVaultBulk({ action, ...buildSelectionPayload(), ...extra });
-      setMessage(`Bulk: ${result.succeeded_count}/${result.requested_count} succeeded.`);
-      await load();
+      setMessage(`Bulk: ${result.succeeded_count}/${result.requested_count} succeeded${result.failed_count ? ` (${result.failed_count} failed)` : ''}.`);
+      await loadParticipants();
     } catch (err) {
       setError(err?.message || 'Bulk action failed.');
     } finally {
@@ -237,8 +274,8 @@ export default function GoldenVaultPage() {
             <input
               aria-label="Search participant ID"
               placeholder="Search Participant ID"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
               style={{ flex: '1 1 180px', padding: 8, borderRadius: 8, border: '1px solid rgba(212,175,55,0.35)', background: '#0f0f11', color: '#fff' }}
             />
             <select value={goldenFilter} onChange={e => setGoldenFilter(e.target.value)} style={{ padding: 8, borderRadius: 8, background: '#0f0f11', color: '#fff', border: '1px solid rgba(212,175,55,0.35)' }}>
@@ -258,6 +295,10 @@ export default function GoldenVaultPage() {
             <div data-testid="golden-bulk-toolbar" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 12, marginBottom: 8 }}>
               <p style={{ margin: '0 0 8px', fontSize: 13 }}>{selectedCount} selected</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => runBulk('auto_session_enable')}>Enable Auto Session</button>
+                <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => runBulk('auto_session_disable')}>Disable Auto Session</button>
+                <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => runBulk('auto_session_reschedule')}>Reschedule Auto Sessions</button>
+                <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => runBulk('auto_session_run_now')}>Run One Auto Session Now</button>
                 <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => runBulk('enable')}>Enable Demo Override</button>
                 <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => setConfirm({ title: 'Disable overrides?', message: 'Disable demo override for selected participants?', onConfirm: () => { setConfirm(null); runBulk('disable'); } })}>Disable Demo Override</button>
                 <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => setAmountModal({ title: 'Add bonus sessions', onSubmit: v => { setAmountModal(null); runBulk('add_sessions', { amount: v }); } })}>Add Sessions</button>
@@ -274,7 +315,11 @@ export default function GoldenVaultPage() {
 
           {error && <p role="alert" style={{ color: '#f87171', fontSize: 13 }}>{error}</p>}
           {message && <p style={{ color: '#86efac', fontSize: 13 }}>{message}</p>}
-          {loading && <p>Loading participants…</p>}
+          {loading && items.length === 0 && (
+            <div data-testid="golden-vault-skeleton" style={{ fontSize: 13, color: '#b8b0a0', marginBottom: 8 }}>
+              Loading participants…
+            </div>
+          )}
 
           <div className="golden-vault-table-wrap">
             <table className="golden-vault-table">
@@ -292,6 +337,7 @@ export default function GoldenVaultPage() {
                   <th>Participant ID</th>
                   <th>Name</th>
                   <th>Golden</th>
+                  <th>Auto Session</th>
                   <th>Real Sessions</th>
                   <th>Bonus</th>
                   <th>Displayed</th>
@@ -317,6 +363,21 @@ export default function GoldenVaultPage() {
                       <td>{row.participantId}</td>
                       <td>{row.displayName || '—'}</td>
                       <td>{row.enabled ? 'Yes' : 'No'}</td>
+                      <td style={{ minWidth: 160 }}>
+                        <div style={{ fontSize: 11, lineHeight: 1.5 }}>
+                          <strong>Auto Session:</strong> {row.autoSessionEnabled ? 'On' : 'Off'}
+                          <br />
+                          {row.autoSessionEnabled
+                            ? (row.nextAutoSessionDisplay ? `Next: ${row.nextAutoSessionDisplay}` : 'Scheduling…')
+                            : 'Automatic sessions disabled'}
+                          {row.lastAutoSessionDisplay && (
+                            <>
+                              <br />
+                              <span>Last run: {row.lastAutoSessionDisplay}</span>
+                            </>
+                          )}
+                        </div>
+                      </td>
                       <td>{row.realCompletedSessions}</td>
                       <td>{row.bonusSessions}</td>
                       <td>{row.displayedCompletedSessions}</td>
@@ -325,6 +386,25 @@ export default function GoldenVaultPage() {
                       <td>{row.updatedAt ? new Date(row.updatedAt).toLocaleString() : '—'}</td>
                       <td>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, maxWidth: 280 }}>
+                          <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => runSingle(`as-${row.participantId}`, async () => {
+                            const res = await goldenVaultPatchAutoSession(row.participantId, !row.autoSessionEnabled);
+                            mergeParticipantRow(row.participantId, {
+                              autoSessionEnabled: res.autoSessionEnabled,
+                              nextAutoSessionAt: res.nextAutoSessionAt,
+                              nextAutoSessionDisplay: res.nextAutoSessionAt ? row.nextAutoSessionDisplay : null,
+                              bonusSessions: res.bonusSessions,
+                              displayedCompletedSessions: res.displayedCompletedSessions,
+                            });
+                            await loadParticipants();
+                          })}>{row.autoSessionEnabled ? 'Disable Auto' : 'Enable Auto'}</button>
+                          <button type="button" className="golden-vault-btn" disabled={!!pendingKey || !row.autoSessionEnabled} onClick={() => runSingle(`rs-${row.participantId}`, async () => {
+                            await goldenVaultRescheduleAutoSession(row.participantId);
+                            await loadParticipants();
+                          })}>Reschedule</button>
+                          <button type="button" className="golden-vault-btn" disabled={!!pendingKey || !row.autoSessionEnabled} onClick={() => runSingle(`rn-${row.participantId}`, async () => {
+                            await goldenVaultRunAutoSessionNow(row.participantId);
+                            await loadParticipants();
+                          })}>Run Now</button>
                           {!row.enabled ? (
                             <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => runSingle(`en-${row.participantId}`, () => goldenVaultPatchParticipant(row.participantId, { enabled: true }))}>Enable</button>
                           ) : (
@@ -345,6 +425,7 @@ export default function GoldenVaultPage() {
 
         <section className="golden-vault-card" style={{ padding: 16 }}>
           <h2 style={{ margin: '0 0 12px', fontSize: 16, color: '#d4af37' }}>Recent Vault History</h2>
+          {auditLoading && <p style={{ fontSize: 12, color: '#9a9285' }}>Loading history…</p>}
           <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, lineHeight: 1.8, color: '#b8b0a0' }}>
             {audit.slice(0, 20).map((entry, index) => (
               <li key={`${entry.event_type}-${entry.created_at}-${index}`}>

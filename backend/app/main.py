@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -16,10 +18,29 @@ from app.routers import (
 
 settings = get_settings()
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    import os
+
+    if not os.getenv("PYTEST_CURRENT_TEST"):
+        from app.database import SessionLocal
+        from app.services.golden_vault_auto_session_service import maybe_process_due_auto_sessions
+
+        try:
+            with SessionLocal() as db:
+                maybe_process_due_auto_sessions(db, batch_size=50)
+                db.commit()
+        except Exception:
+            pass
+    yield
+
+
 app = FastAPI(
     title="NeuroCortex API",
     version="1.0.0",
     description="NeuroCortex longitudinal research platform backend",
+    lifespan=lifespan,
 )
 
 app.add_middleware(

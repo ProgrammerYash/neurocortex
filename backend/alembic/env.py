@@ -32,6 +32,7 @@ from app.models import (  # noqa: F401 — register models with metadata
     ParticipantFeedbackGenerationLock,
     GoldenDemoOverride,
 )
+from app.models.golden_auto_session_event import GoldenAutoSessionEvent  # noqa: F401
 
 config = context.config
 settings = get_settings()

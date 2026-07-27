@@ -345,6 +345,9 @@ def get_dashboard_summary_endpoint(
     _researcher: Researcher = Depends(get_current_researcher),
     db: Session = Depends(get_db),
 ) -> DashboardSummaryResponse:
+    from app.services.golden_vault_auto_session_service import maybe_process_due_auto_sessions
+
+    maybe_process_due_auto_sessions(db, batch_size=10)
     return DashboardSummaryResponse(**get_dashboard_summary(db))
 
 
@@ -588,6 +591,9 @@ def get_dashboard_participants(
     _researcher: Researcher = Depends(get_current_researcher),
     db: Session = Depends(get_db),
 ) -> DashboardParticipantsPage:
+    from app.services.golden_vault_auto_session_service import maybe_process_due_auto_sessions
+
+    maybe_process_due_auto_sessions(db, batch_size=10)
     items, total = list_dashboard_participants(
         db,
         limit=limit,

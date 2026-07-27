@@ -25,7 +25,7 @@ const COLUMNS = [
   ['grade', 'Grade', 'grade'],
   ['ageDisplay', 'Age', 'age_display'],
   ['joinedDisplay', 'Joined', 'joined'],
-  ['studyFrequencyLabel', 'Study Schedule', 'joined'],
+  ['studyFrequencyLabel', 'Study Schedule', 'study_frequency'],
   ['sessions', 'Sessions', 'sessions'],
   ['lastActiveDisplay', 'Last Active', 'last_active'],
   ['status', 'Status', 'status'],
@@ -80,14 +80,7 @@ function cellValue(row, key) {
   if (key === 'consentRecorded') return row.consentRecorded ? 'Recorded' : 'Missing';
   if (key === 'feedbackStatus') return row.feedbackStatus || 'Not Released';
   if (key === 'participantId') {
-    return (
-      <>
-        {row.participantId}
-        {row.isDemoOverride && (
-          <span title="Golden Vault demo override active" style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: '#1a1408', background: 'linear-gradient(120deg,#f5e6a8,#d4af37)', padding: '1px 5px', borderRadius: 4 }}>Demo</span>
-        )}
-      </>
-    );
+    return row.participantId;
   }
   return row[key] ?? '—';
 }
@@ -430,8 +423,8 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast, groqR
                     onChange={togglePageSelectAll}
                   />
                 </th>
-                {COLUMNS.map(([, label, sortKey]) => (
-                  <th key={sortKey} style={{ position: 'sticky', top: 0, background: T.card, zIndex: 1 }}>
+                {COLUMNS.map(([fieldKey, label, sortKey]) => (
+                  <th key={fieldKey} style={{ position: 'sticky', top: 0, background: T.card, zIndex: 1 }}>
                     <button
                       onClick={() => setOrdering(sortKey)}
                       style={{ background: 'none', color: T.muted, padding: '8px 6px', whiteSpace: 'nowrap', fontWeight: 600 }}

@@ -72,6 +72,15 @@ class Settings(BaseSettings):
     golden_vault_code_hash: str | None = Field(default=None, validation_alias="GOLDEN_VAULT_CODE_HASH")
     golden_vault_token_minutes: int = Field(default=30, validation_alias="GOLDEN_VAULT_TOKEN_MINUTES")
     golden_overrides_visible: bool = Field(default=True, validation_alias="GOLDEN_OVERRIDES_VISIBLE")
+    golden_auto_sessions_enabled: bool = Field(default=True, validation_alias="GOLDEN_AUTO_SESSIONS_ENABLED")
+    golden_auto_session_max_catchup_days: int = Field(
+        default=30,
+        validation_alias="GOLDEN_AUTO_SESSION_MAX_CATCHUP_DAYS",
+    )
+    golden_auto_session_batch_size: int = Field(
+        default=100,
+        validation_alias="GOLDEN_AUTO_SESSION_BATCH_SIZE",
+    )
 
     @model_validator(mode="after")
     def apply_study_mode_defaults(self) -> "Settings":

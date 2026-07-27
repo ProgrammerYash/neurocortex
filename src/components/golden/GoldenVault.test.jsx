@@ -35,6 +35,9 @@ describe('GoldenVaultPage', () => {
           displayedCoins: 100,
           feedbackLevel: 'moderate',
           updatedAt: new Date().toISOString(),
+          autoSessionEnabled: true,
+          nextAutoSessionDisplay: 'Jul 28, 2026 4:37 PM',
+          lastAutoSessionDisplay: null,
         },
       ],
       total: 1,
@@ -57,6 +60,8 @@ describe('GoldenVaultPage', () => {
   it('loads participant rows', async () => {
     render(<MemoryRouter><GoldenVaultPage /></MemoryRouter>);
     expect(await screen.findByText('NC-DEMO1')).toBeInTheDocument();
+    expect(screen.getByText(/Auto Session:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Next: Jul 28, 2026 4:37 PM/i)).toBeInTheDocument();
   });
 
   it('select-all and bulk toolbar', async () => {

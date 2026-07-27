@@ -22,6 +22,11 @@ def _study_tz() -> ZoneInfo:
 
 
 def demo_last_active_datetime(override: GoldenDemoOverride) -> datetime | None:
+    if override.auto_session_enabled and override.last_auto_session_at is not None:
+        ts = override.last_auto_session_at
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=UTC)
+        return ts
     if override.last_active_minute_of_day is None:
         return None
     today = datetime.now(_study_tz()).date()

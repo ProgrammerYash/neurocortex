@@ -28,6 +28,24 @@ class GoldenVaultParticipantRow(BaseModel):
     feedbackLevel: str | None = None
     feedbackStatus: str | None = None
     updatedAt: str | None = None
+    autoSessionEnabled: bool = False
+    nextAutoSessionAt: str | None = None
+    nextAutoSessionDisplay: str | None = None
+    lastAutoSessionAt: str | None = None
+    lastAutoSessionDisplay: str | None = None
+
+
+class GoldenVaultAutoSessionPatchRequest(BaseModel):
+    enabled: bool
+
+
+class GoldenVaultAutoSessionResponse(BaseModel):
+    publicId: str
+    autoSessionEnabled: bool
+    nextAutoSessionAt: str | None = None
+    lastAutoSessionAt: str | None = None
+    bonusSessions: int
+    displayedCompletedSessions: int
 
 
 class GoldenVaultParticipantListResponse(BaseModel):

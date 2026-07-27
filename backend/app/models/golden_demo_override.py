@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -39,6 +39,12 @@ class GoldenDemoOverride(Base):
 
     last_active_minute_of_day: Mapped[int | None] = mapped_column(Integer, nullable=True)
     random_seed: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    auto_session_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    next_auto_session_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_auto_session_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_auto_session_local_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    auto_session_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default="now()")
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default="now()")

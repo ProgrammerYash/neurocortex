@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select, and_
 from sqlalchemy.orm import Session
 
 from app.models.consent_record import ConsentRecord
@@ -15,6 +15,15 @@ from app.models.participant import Participant
 from app.models.participant_game_data import ParticipantGameData
 from app.services.audit_service import record_audit_event
 from app.services.consent_content import CONSENT_VERSION
+from app.services.golden_vault_auto_session_service import (
+    auto_session_fields_for_row,
+    disable_auto_session,
+    enable_auto_session,
+    is_auto_session_eligible,
+    maybe_process_due_auto_sessions,
+    reschedule_auto_session,
+    run_auto_session_now,
+)
 from app.services.golden_vault_profile import apply_profile_to_override, generate_demo_profile
 from app.services.researcher_dashboard_service import _aggregate_sessions, _load_sessions_by_participant
 from app.services.study_guard import apply_participant_filter, is_synthetic_public_id
@@ -63,18 +72,75 @@ def _touch(row: GoldenDemoOverride, *, updated_by: str = "golden_vault") -> None
     row.updated_by = updated_by
 
 
+def _earned_coins_map(db: Session, participant_ids: list[UUID]) -> dict[UUID, int]:
+    if not participant_ids:
+        return {}
+    rows = db.execute(
+        select(ParticipantGameData).where(ParticipantGameData.participant_id.in_(participant_ids))
+    ).scalars().all()
+    result = {pid: 0 for pid in participant_ids}
+    for row in rows:
+        result[row.participant_id] = int((row.game_data or {}).get("coins") or 0)
+    return result
+
+
+def _real_completed_sessions_map(db: Session, participant_ids: list[UUID]) -> dict[UUID, int]:
+    if not participant_ids:
+        return {}
+    sessions_map = _load_sessions_by_participant(db, participant_ids)
+    return {
+        pid: int(_aggregate_sessions(sessions_map.get(pid, []))["sessions_completed"])
+        for pid in participant_ids
+    }
+
+
+def _consent_display_names(db: Session, participant_ids: list[UUID]) -> dict[UUID, str | None]:
+    if not participant_ids:
+        return {}
+    rows = db.execute(
+        select(ConsentRecord).where(
+            ConsentRecord.participant_id.in_(participant_ids),
+            ConsentRecord.consent_version == CONSENT_VERSION,
+            ConsentRecord.revoked_at.is_(None),
+        )
+    ).scalars().all()
+    by_participant: dict[UUID, ConsentRecord] = {}
+    for row in rows:
+        existing = by_participant.get(row.participant_id)
+        if existing is None or row.created_at > existing.created_at:
+            by_participant[row.participant_id] = row
+    return {
+        pid: (
+            (rec.participant_printed_name or rec.guardian_printed_name)
+            if (rec := by_participant.get(pid))
+            else None
+        )
+        for pid in participant_ids
+    }
+
+
+def _vault_visibility_clause(now: datetime | None = None):
+    ref = now or datetime.now(UTC)
+    suspended_active = and_(
+        Participant.is_suspended.is_(True),
+        or_(Participant.suspended_until.is_(None), Participant.suspended_until > ref),
+    )
+    return and_(Participant.removed_at.is_(None), ~suspended_active)
+
+
+def _vault_participant_query(db: Session, *, search: str | None):
+    query = apply_participant_filter(select(Participant)).where(_vault_visibility_clause())
+    if search and search.strip():
+        query = query.where(Participant.public_id.ilike(f"%{search.strip()}%"))
+    return query
+
+
 def _earned_coins(db: Session, participant_id: UUID) -> int:
-    row = db.execute(
-        select(ParticipantGameData).where(ParticipantGameData.participant_id == participant_id)
-    ).scalar_one_or_none()
-    if row is None:
-        return 0
-    return int((row.game_data or {}).get("coins") or 0)
+    return _earned_coins_map(db, [participant_id]).get(participant_id, 0)
 
 
 def _real_completed_sessions(db: Session, participant_id: UUID) -> int:
-    sessions = _load_sessions_by_participant(db, [participant_id]).get(participant_id, [])
-    return int(_aggregate_sessions(sessions)["sessions_completed"])
+    return _real_completed_sessions_map(db, [participant_id]).get(participant_id, 0)
 
 
 def _consent_display_name(db: Session, participant_id: UUID) -> str | None:
@@ -91,18 +157,19 @@ def _consent_display_name(db: Session, participant_id: UUID) -> str | None:
 
 
 def _participant_row_payload(
-    db: Session,
+    *,
     participant: Participant,
     override: GoldenDemoOverride | None,
+    real_sessions: int,
+    earned: int,
+    display_name: str | None,
 ) -> dict[str, Any]:
-    real_sessions = _real_completed_sessions(db, participant.id)
-    earned = _earned_coins(db, participant.id)
     enabled = bool(override and override.enabled)
     bonus_sessions = max(0, int(override.bonus_sessions or 0)) if override else 0
     bonus_coins = max(0, int(override.bonus_coins or 0)) if override else 0
-    return {
+    payload = {
         "participantId": participant.public_id,
-        "displayName": _consent_display_name(db, participant.id),
+        "displayName": display_name,
         "enabled": enabled,
         "realCompletedSessions": real_sessions,
         "bonusSessions": bonus_sessions,
@@ -114,6 +181,30 @@ def _participant_row_payload(
         "feedbackStatus": override.simulated_feedback_status if override else None,
         "updatedAt": override.updated_at.isoformat() if override and override.updated_at else None,
     }
+    payload.update(auto_session_fields_for_row(override))
+    return payload
+
+
+def _build_vault_filtered_query(
+    db: Session,
+    *,
+    search: str | None,
+    golden_enabled: str | None,
+    feedback_filter: str | None,
+):
+    query = _vault_participant_query(db, search=search).outerjoin(
+        GoldenDemoOverride,
+        GoldenDemoOverride.participant_id == Participant.id,
+    )
+    if golden_enabled == "enabled":
+        query = query.where(GoldenDemoOverride.enabled.is_(True))
+    elif golden_enabled == "disabled":
+        query = query.where(or_(GoldenDemoOverride.enabled.is_(False), GoldenDemoOverride.id.is_(None)))
+    if feedback_filter == "released":
+        query = query.where(GoldenDemoOverride.simulated_feedback_status == "Released")
+    elif feedback_filter == "revoked":
+        query = query.where(GoldenDemoOverride.simulated_feedback_status == "Revoked")
+    return query
 
 
 def list_vault_participants(
@@ -125,28 +216,36 @@ def list_vault_participants(
     golden_enabled: str | None,
     feedback_filter: str | None,
 ) -> tuple[list[dict[str, Any]], int]:
-    query = apply_participant_filter(select(Participant))
-    if search and search.strip():
-        term = f"%{search.strip()}%"
-        query = query.where(Participant.public_id.ilike(term))
-    participants = db.execute(query.order_by(Participant.created_at.asc())).scalars().all()
+    maybe_process_due_auto_sessions(db, batch_size=25)
+    filtered = _build_vault_filtered_query(
+        db,
+        search=search,
+        golden_enabled=golden_enabled,
+        feedback_filter=feedback_filter,
+    )
+    total = db.execute(select(func.count()).select_from(filtered.subquery())).scalar_one()
+    participants = db.execute(
+        filtered.order_by(Participant.created_at.asc()).offset(offset).limit(limit)
+    ).scalars().all()
     participants = [p for p in participants if not is_synthetic_public_id(p.public_id)]
-    override_map = load_overrides_map(db, [p.id for p in participants])
-    rows = []
-    for participant in participants:
-        override = override_map.get(participant.id)
-        row = _participant_row_payload(db, participant, override)
-        if golden_enabled == "enabled" and not row["enabled"]:
-            continue
-        if golden_enabled == "disabled" and row["enabled"]:
-            continue
-        if feedback_filter == "released" and row.get("feedbackStatus") != "Released":
-            continue
-        if feedback_filter == "revoked" and row.get("feedbackStatus") != "Revoked":
-            continue
-        rows.append(row)
-    total = len(rows)
-    return rows[offset : offset + limit], total
+    if not participants:
+        return [], int(total)
+    ids = [p.id for p in participants]
+    override_map = load_overrides_map(db, ids)
+    sessions_map = _real_completed_sessions_map(db, ids)
+    coins_map = _earned_coins_map(db, ids)
+    names_map = _consent_display_names(db, ids)
+    rows = [
+        _participant_row_payload(
+            participant=participant,
+            override=override_map.get(participant.id),
+            real_sessions=sessions_map.get(participant.id, 0),
+            earned=coins_map.get(participant.id, 0),
+            display_name=names_map.get(participant.id),
+        )
+        for participant in participants
+    ]
+    return rows, int(total)
 
 
 def get_vault_participant(db: Session, public_id: str) -> dict[str, Any] | None:
@@ -155,8 +254,16 @@ def get_vault_participant(db: Session, public_id: str) -> dict[str, Any] | None:
     ).scalar_one_or_none()
     if participant is None or is_synthetic_public_id(participant.public_id):
         return None
+    if not is_auto_session_eligible(participant):
+        return None
     override = get_override_for_participant(db, participant.id)
-    return _participant_row_payload(db, participant, override)
+    return _participant_row_payload(
+        participant=participant,
+        override=override,
+        real_sessions=_real_completed_sessions(db, participant.id),
+        earned=_earned_coins(db, participant.id),
+        display_name=_consent_display_name(db, participant.id),
+    )
 
 
 def _resolve_participant(db: Session, public_id: str) -> Participant:
@@ -164,6 +271,8 @@ def _resolve_participant(db: Session, public_id: str) -> Participant:
         apply_participant_filter(select(Participant).where(Participant.public_id == public_id.upper()))
     ).scalar_one_or_none()
     if participant is None or is_synthetic_public_id(participant.public_id):
+        raise GoldenVaultError("Participant not found", status_code=404)
+    if not is_auto_session_eligible(participant):
         raise GoldenVaultError("Participant not found", status_code=404)
     return participant
 
@@ -383,6 +492,11 @@ def reset_all_demo(db: Session, *, public_id: str) -> GoldenDemoOverride:
     row.simulated_feedback_factors_json = None
     row.last_active_minute_of_day = None
     row.random_seed = None
+    row.auto_session_enabled = False
+    row.next_auto_session_at = None
+    row.last_auto_session_at = None
+    row.last_auto_session_local_date = None
+    row.auto_session_updated_at = None
     _touch(row)
     record_audit_event(
         db,
@@ -424,6 +538,43 @@ def _resolve_bulk_ids(
     return ids[:500]
 
 
+def set_auto_session_enabled(db: Session, *, public_id: str, enabled: bool) -> GoldenDemoOverride:
+    participant = _resolve_participant(db, public_id)
+    row = _get_or_create_override(db, participant)
+    if enabled:
+        enable_auto_session(db, row, participant)
+    else:
+        disable_auto_session(db, row, participant)
+    _touch(row)
+    db.flush()
+    db.refresh(row)
+    return row
+
+
+def reschedule_auto_session_for_public_id(db: Session, *, public_id: str) -> GoldenDemoOverride:
+    participant = _resolve_participant(db, public_id)
+    row = _get_or_create_override(db, participant)
+    reschedule_auto_session(db, row, participant)
+    _touch(row)
+    db.flush()
+    db.refresh(row)
+    return row
+
+
+def run_auto_session_now_for_public_id(db: Session, *, public_id: str) -> GoldenDemoOverride:
+    participant = _resolve_participant(db, public_id)
+    row = _get_or_create_override(db, participant)
+    if not row.auto_session_enabled:
+        raise GoldenVaultError("Auto Session is not enabled for this participant", status_code=400)
+    awarded = run_auto_session_now(db, row, participant)
+    if not awarded:
+        raise GoldenVaultError("Automatic session already recorded for today", status_code=409)
+    _touch(row)
+    db.flush()
+    db.refresh(row)
+    return row
+
+
 def run_bulk_action(db: Session, *, payload: dict[str, Any]) -> dict[str, Any]:
     action = payload.get("action") or ""
     ids = _resolve_bulk_ids(
@@ -456,6 +607,10 @@ def run_bulk_action(db: Session, *, payload: dict[str, Any]) -> dict[str, Any]:
         "release_feedback": lambda pid: release_demo_feedback(db, public_id=pid),
         "revoke_feedback": lambda pid: revoke_demo_feedback(db, public_id=pid),
         "reset_all": lambda pid: reset_all_demo(db, public_id=pid),
+        "auto_session_enable": lambda pid: set_auto_session_enabled(db, public_id=pid, enabled=True),
+        "auto_session_disable": lambda pid: set_auto_session_enabled(db, public_id=pid, enabled=False),
+        "auto_session_reschedule": lambda pid: reschedule_auto_session_for_public_id(db, public_id=pid),
+        "auto_session_run_now": lambda pid: run_auto_session_now_for_public_id(db, public_id=pid),
     }
     handler = handlers.get(action)
     if handler is None:

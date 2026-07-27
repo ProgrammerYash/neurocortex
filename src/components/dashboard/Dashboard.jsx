@@ -72,11 +72,8 @@ export default function Dashboard({user,sessions,todaySessions,todayComplete,gam
             <span style={{fontSize:22}}>🧠</span>
             <span style={{fontWeight:700,fontSize:18,background:`linear-gradient(135deg,${T.teal},${T.blue})`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>NeuroCortex</span>
           </div>
-          <div style={{fontFamily:T.mono,fontSize:11,color:T.muted,marginTop:2,display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+          <div style={{fontFamily:T.mono,fontSize:11,color:T.muted,marginTop:2}}>
             <span>{user?.id}</span>
-            {(user?.demoAccount || gameData?.demoAccount) && (
-              <span title="Demo account with simulated dashboard values" style={{ fontSize: 10, fontWeight: 600, color: '#5c4a12', background: '#f5e6a8', padding: '1px 6px', borderRadius: 4 }}>Demo account</span>
-            )}
           </div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:'wrap',justifyContent:'flex-end'}}>
