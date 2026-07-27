@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import get_settings
+from app.config import get_settings, cors_middleware_options
 from app.middleware import ConsentBodyLimitMiddleware
 from app.routers import (
     auth,
@@ -45,10 +45,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if settings.environment == "development" else [],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    **cors_middleware_options(settings),
 )
 app.add_middleware(
     ConsentBodyLimitMiddleware,

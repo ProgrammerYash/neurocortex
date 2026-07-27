@@ -33,6 +33,12 @@ class GoldenVaultParticipantRow(BaseModel):
     nextAutoSessionDisplay: str | None = None
     lastAutoSessionAt: str | None = None
     lastAutoSessionDisplay: str | None = None
+    autoDataConfigured: bool = False
+    autoDataStartDate: str | None = None
+    autoDataEndDate: str | None = None
+    autoDataFrequency: str | None = None
+    autoDataWeekdays: list[int] | None = None
+    autoDataPaused: bool = False
 
 
 class GoldenVaultAutoSessionPatchRequest(BaseModel):
@@ -62,7 +68,36 @@ class GoldenVaultPatchRequest(BaseModel):
 
 
 class GoldenVaultAmountRequest(BaseModel):
-    amount: int = Field(ge=0)
+    amount: int = Field(ge=1)
+
+
+class GoldenVaultAutoDataRequest(BaseModel):
+    start_date: str
+    end_date: str | None = None
+    frequency: str | None = None
+    weekdays: list[int] | None = None
+    enable_future: bool = True
+
+
+class GoldenVaultAutoDataPatchRequest(BaseModel):
+    start_date: str | None = None
+    end_date: str | None = None
+    frequency: str | None = None
+    weekdays: list[int] | None = None
+    paused: bool | None = None
+
+
+class GoldenVaultAutoDataPreviewResponse(BaseModel):
+    startDate: str
+    endDate: str | None = None
+    endLabel: str
+    frequency: str
+    weekdays: list[int]
+    scheduledThroughToday: int
+    alreadyGenerated: int
+    newSessionsToAdd: int
+    resultingDisplayedSessions: int
+    nextAutoSessionAt: str | None = None
 
 
 class GoldenVaultSessionAdjustRequest(BaseModel):

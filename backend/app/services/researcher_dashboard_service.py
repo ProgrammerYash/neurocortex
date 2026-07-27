@@ -461,14 +461,35 @@ def _summary_from_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
     for row in rows:
         metrics = row["_metrics"]
-        reaction_values.extend(metrics["global_reaction_values"])
-        stress_values.extend(metrics["global_stress_values"])
-        fatigue_values.extend(metrics["global_fatigue_values"])
-        sleep_values.extend(metrics["global_sleep_values"])
-        memory_values.extend(metrics["global_memory_values"])
-        started_total += metrics["global_started_dates"]
-        completed_total += metrics["global_completed_dates"]
-        last_active = metrics["last_active_at"]
+        displayed_sessions = int(
+            row.get("displayedCompletedSessions")
+            or row.get("sessions")
+            or metrics.get("sessions_completed")
+            or 0
+        )
+        started_total += displayed_sessions
+        completed_total += displayed_sessions
+
+        if row.get("_isAutoDataUser"):
+            if row.get("averageReactionTimeMs") is not None:
+                reaction_values.append(float(row["averageReactionTimeMs"]))
+            if row.get("averageStress") is not None:
+                stress_values.append(float(row["averageStress"]))
+            if row.get("averageFatigue") is not None:
+                fatigue_values.append(float(row["averageFatigue"]))
+            if row.get("averageSleepHours") is not None:
+                sleep_values.append(float(row["averageSleepHours"]))
+            if row.get("averageMemoryAccuracy") is not None:
+                memory_values.append(float(row["averageMemoryAccuracy"]))
+            last_active = row.get("lastActiveAt")
+        else:
+            reaction_values.extend(metrics["global_reaction_values"])
+            stress_values.extend(metrics["global_stress_values"])
+            fatigue_values.extend(metrics["global_fatigue_values"])
+            sleep_values.extend(metrics["global_sleep_values"])
+            memory_values.extend(metrics["global_memory_values"])
+            last_active = metrics["last_active_at"]
+
         if last_active is not None:
             if last_active.tzinfo is None:
                 last_active = last_active.replace(tzinfo=UTC)
@@ -493,26 +514,29 @@ def _summary_from_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _strip_internal(row: dict[str, Any]) -> dict[str, Any]:
-    return {key: value for key, value in row.items() if key != "_metrics"}
+    return {key: value for key, value in row.items() if key not in ("_metrics", "_isAutoDataUser")}
 
 
 def get_dashboard_summary(db: Session) -> dict[str, Any]:
     from app.services.participant_feedback_service import researcher_feedback_summary
-    from app.services.procedure_service import count_all_study_completed_sessions
 
     participants = db.execute(_base_participant_query(db, None)).scalars().all()
     rows = _compute_rows(db, participants)
     visible_rows = [row for row in rows if row["status"] != "Removed"]
     summary = _summary_from_rows(visible_rows)
     feedback = researcher_feedback_summary(db)
-    real_total = count_all_study_completed_sessions(db)
+    displayed_total = sum(
+        int(row.get("displayedCompletedSessions") or row.get("sessions") or 0) for row in visible_rows
+    )
+    real_total = sum(int(row.get("realCompletedSessions") or row["_metrics"]["sessions_completed"]) for row in visible_rows)
     demo_bonus = sum(int(row.get("bonusSessions") or 0) for row in visible_rows if row.get("isDemoOverride"))
     summary.update(
         {
-            "totalCompletedSessions": real_total + demo_bonus,
+            "totalCompletedSessions": displayed_total,
+            "totalSessions": displayed_total,
             "realCompletedSessions": real_total,
             "demoBonusSessions": demo_bonus,
-            "completedSessions": real_total + demo_bonus,
+            "completedSessions": displayed_total,
             "groqFeedbackStatus": feedback["groq_feedback_status"],
             "groqFeedbackConfigured": feedback["groq_feedback_configured"],
             "groqModel": feedback.get("groq_model"),

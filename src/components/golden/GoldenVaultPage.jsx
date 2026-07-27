@@ -18,6 +18,8 @@ import {
   isGoldenVaultAuthed,
   signOutGoldenVault,
 } from '../../store/goldenVault.js';
+import AutoDataModal from './AutoDataModal.jsx';
+import { SessionCoinControls } from './GoldenVaultSessionControls.jsx';
 import { ROUTES } from '../../routing/routePaths.js';
 import '../../styles/golden-vault.css';
 
@@ -45,13 +47,18 @@ function ConfirmDialog({ title, message, onConfirm, onCancel, busy }) {
   );
 }
 
-function AmountModal({ title, onSubmit, onClose, busy }) {
+function AmountModal({ title, onSubmit, onClose, busy, min = 0 }) {
   const [amount, setAmount] = useState('');
   const [error, setError] = useState('');
   const submit = () => {
-    const value = Number.parseInt(amount, 10);
-    if (!Number.isFinite(value) || value < 0) {
-      setError('Enter a non-negative whole number.');
+    const trimmed = amount.trim();
+    if (!/^\d+$/.test(trimmed)) {
+      setError('Enter a whole number.');
+      return;
+    }
+    const value = Number.parseInt(trimmed, 10);
+    if (value < min || (min >= 1 && value < 1)) {
+      setError(min >= 1 ? 'Enter a whole number at least 1.' : 'Enter a non-negative whole number.');
       return;
     }
     onSubmit(value);
@@ -96,6 +103,7 @@ export default function GoldenVaultPage() {
   const [audit, setAudit] = useState([]);
   const [confirm, setConfirm] = useState(null);
   const [amountModal, setAmountModal] = useState(null);
+  const [autoDataRow, setAutoDataRow] = useState(null);
   const loadSeq = useRef(0);
   const authed = isGoldenVaultAuthed();
   const pageIds = useMemo(() => items.map(row => row.participantId), [items]);
@@ -301,8 +309,10 @@ export default function GoldenVaultPage() {
                 <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => runBulk('auto_session_run_now')}>Run One Auto Session Now</button>
                 <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => runBulk('enable')}>Enable Demo Override</button>
                 <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => setConfirm({ title: 'Disable overrides?', message: 'Disable demo override for selected participants?', onConfirm: () => { setConfirm(null); runBulk('disable'); } })}>Disable Demo Override</button>
-                <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => setAmountModal({ title: 'Add bonus sessions', onSubmit: v => { setAmountModal(null); runBulk('add_sessions', { amount: v }); } })}>Add Sessions</button>
-                <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => setAmountModal({ title: 'Add bonus coins', onSubmit: v => { setAmountModal(null); runBulk('add_coins', { amount: v }); } })}>Add Coins</button>
+                <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => setAmountModal({ title: 'Bulk add sessions', min: 1, onSubmit: v => { setAmountModal(null); runBulk('add_sessions', { amount: v }); } })}>Add Sessions</button>
+                <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => setAmountModal({ title: 'Bulk delete sessions', min: 1, onSubmit: v => { setAmountModal(null); runBulk('delete_sessions', { amount: v }); } })}>Delete Sessions</button>
+                <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => setAmountModal({ title: 'Bulk add coins', min: 1, onSubmit: v => { setAmountModal(null); runBulk('add_coins', { amount: v }); } })}>Add Coins</button>
+                <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => setAmountModal({ title: 'Bulk delete coins', min: 1, onSubmit: v => { setAmountModal(null); runBulk('delete_coins', { amount: v }); } })}>Delete Coins</button>
                 <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => runBulk('regenerate_metrics')}>Regenerate Demo Metrics</button>
                 <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => runBulk('release_feedback')}>Release Demo Feedback</button>
                 <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => runBulk('revoke_feedback')}>Revoke Demo Feedback</button>
@@ -337,7 +347,7 @@ export default function GoldenVaultPage() {
                   <th>Participant ID</th>
                   <th>Name</th>
                   <th>Golden</th>
-                  <th>Auto Session</th>
+                  <th>Auto Data</th>
                   <th>Real Sessions</th>
                   <th>Bonus</th>
                   <th>Displayed</th>
@@ -365,7 +375,7 @@ export default function GoldenVaultPage() {
                       <td>{row.enabled ? 'Yes' : 'No'}</td>
                       <td style={{ minWidth: 160 }}>
                         <div style={{ fontSize: 11, lineHeight: 1.5 }}>
-                          <strong>Auto Session:</strong> {row.autoSessionEnabled ? 'On' : 'Off'}
+                          <strong>Auto Data:</strong> {row.autoSessionEnabled ? 'On' : 'Off'}
                           <br />
                           {row.autoSessionEnabled
                             ? (row.nextAutoSessionDisplay ? `Next: ${row.nextAutoSessionDisplay}` : 'Scheduling…')
@@ -386,6 +396,7 @@ export default function GoldenVaultPage() {
                       <td>{row.updatedAt ? new Date(row.updatedAt).toLocaleString() : '—'}</td>
                       <td>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, maxWidth: 280 }}>
+                          <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => setAutoDataRow(row)}>Auto Data</button>
                           <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => runSingle(`as-${row.participantId}`, async () => {
                             const res = await goldenVaultPatchAutoSession(row.participantId, !row.autoSessionEnabled);
                             mergeParticipantRow(row.participantId, {
@@ -396,7 +407,7 @@ export default function GoldenVaultPage() {
                               displayedCompletedSessions: res.displayedCompletedSessions,
                             });
                             await loadParticipants();
-                          })}>{row.autoSessionEnabled ? 'Disable Auto' : 'Enable Auto'}</button>
+                          })}>{row.autoSessionEnabled ? 'Pause Auto Data' : 'Resume Auto Data'}</button>
                           <button type="button" className="golden-vault-btn" disabled={!!pendingKey || !row.autoSessionEnabled} onClick={() => runSingle(`rs-${row.participantId}`, async () => {
                             await goldenVaultRescheduleAutoSession(row.participantId);
                             await loadParticipants();
@@ -410,8 +421,7 @@ export default function GoldenVaultPage() {
                           ) : (
                             <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => setConfirm({ title: 'Disable override?', message: `Disable demo override for ${row.participantId}?`, onConfirm: () => { setConfirm(null); runSingle(`dis-${row.participantId}`, () => goldenVaultPatchParticipant(row.participantId, { enabled: false })); } })}>Disable</button>
                           )}
-                          <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => runSingle(`s1-${row.participantId}`, () => goldenVaultAdjustSessions(row.participantId, { delta: 1 }))}>+1 Ses</button>
-                          <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => runSingle(`c10-${row.participantId}`, () => goldenVaultAdjustCoins(row.participantId, { delta: 10 }))}>+10 Coins</button>
+                          <SessionCoinControls row={row} disabled={!!pendingKey} onUpdated={loadParticipants} />
                           <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => runSingle(`reg-${row.participantId}`, () => goldenVaultRegenerateMetrics(row.participantId))}>Regen Metrics</button>
                         </div>
                       </td>
@@ -449,8 +459,17 @@ export default function GoldenVaultPage() {
       {amountModal && (
         <AmountModal
           title={amountModal.title}
+          min={amountModal.min ?? 0}
           onSubmit={amountModal.onSubmit}
           onClose={() => setAmountModal(null)}
+          busy={!!pendingKey}
+        />
+      )}
+      {autoDataRow && (
+        <AutoDataModal
+          row={autoDataRow}
+          onClose={() => setAutoDataRow(null)}
+          onApplied={loadParticipants}
           busy={!!pendingKey}
         />
       )}

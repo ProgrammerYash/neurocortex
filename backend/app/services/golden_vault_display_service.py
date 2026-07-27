@@ -22,6 +22,11 @@ def _study_tz() -> ZoneInfo:
 
 
 def demo_last_active_datetime(override: GoldenDemoOverride) -> datetime | None:
+    if override.is_auto_data_user and override.last_auto_session_at is not None:
+        ts = override.last_auto_session_at
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=UTC)
+        return ts
     if override.auto_session_enabled and override.last_auto_session_at is not None:
         ts = override.last_auto_session_at
         if ts.tzinfo is None:
@@ -79,6 +84,7 @@ def resolve_participant_display_metrics(
         "bonusSessions": 0,
         "displayedCompletedSessions": real_completed,
         "isDemoOverride": False,
+        "isAutoDataUser": False,
         "realStatus": real_status,
         "displayStatus": real_status,
     }
@@ -90,14 +96,24 @@ def resolve_participant_display_metrics(
         return display
 
     bonus_sessions = max(0, int(golden_override.bonus_sessions or 0))
+    is_auto_data = bool(golden_override.is_auto_data_user)
+    if is_auto_data:
+        displayed_completed = bonus_sessions
+    else:
+        displayed_completed = real_completed + bonus_sessions
+
     display.update(
         {
             "bonusSessions": bonus_sessions,
-            "displayedCompletedSessions": real_completed + bonus_sessions,
+            "displayedCompletedSessions": displayed_completed,
             "isDemoOverride": True,
-            "displayStatus": "Active",
+            "isAutoDataUser": is_auto_data,
+            "displayStatus": "Active" if is_auto_data else real_status,
         }
     )
+
+    if not is_auto_data:
+        return display
 
     last_active = demo_last_active_datetime(golden_override)
     if last_active is not None:
@@ -133,10 +149,13 @@ def apply_display_to_dashboard_row(row: dict[str, Any], display: dict[str, Any])
     if not display.get("isDemoOverride"):
         return
     row["isDemoOverride"] = True
+    row["_isAutoDataUser"] = bool(display.get("isAutoDataUser"))
     row["realCompletedSessions"] = display["realCompletedSessions"]
     row["bonusSessions"] = display["bonusSessions"]
     row["displayedCompletedSessions"] = display["displayedCompletedSessions"]
     row["sessions"] = display["displayedCompletedSessions"]
+    if not display.get("isAutoDataUser"):
+        return
     if display.get("lastActiveDisplay"):
         row["lastActiveDisplay"] = display["lastActiveDisplay"]
         row["lastActiveAt"] = display.get("lastActiveAt")
@@ -169,9 +188,13 @@ def apply_display_to_game_data(game_data: dict[str, Any] | None, override: Golde
     payload["bonusCoins"] = bonus_coins
     payload["displayedCoins"] = earned_coins + bonus_coins
     payload["coins"] = earned_coins + bonus_coins
-    payload["realTotalDays"] = real_days
-    payload["bonusStudyDays"] = bonus_sessions
-    payload["totalDays"] = real_days + bonus_sessions
+    if override.is_auto_data_user:
+        payload["realTotalDays"] = real_days
+        payload["bonusStudyDays"] = bonus_sessions
+        payload["totalDays"] = real_days + bonus_sessions
+    else:
+        payload["realTotalDays"] = real_days
+        payload["bonusStudyDays"] = bonus_sessions
+        payload["totalDays"] = real_days + bonus_sessions
     payload["isDemoOverride"] = True
-    payload["demoAccount"] = True
     return payload

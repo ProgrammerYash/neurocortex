@@ -11,6 +11,9 @@ from app.deps import get_current_golden_vault
 from app.schemas.golden_vault import (
     GoldenVaultAmountRequest,
     GoldenVaultAuditItem,
+    GoldenVaultAutoDataPatchRequest,
+    GoldenVaultAutoDataPreviewResponse,
+    GoldenVaultAutoDataRequest,
     GoldenVaultAutoSessionPatchRequest,
     GoldenVaultAutoSessionResponse,
     GoldenVaultBulkRequest,
@@ -26,15 +29,23 @@ from app.schemas.golden_vault import (
 from app.services.golden_vault_auth_service import GoldenVaultAuthError, login_golden_vault
 from app.services.golden_vault_service import (
     GoldenVaultError,
+    add_bonus_coins,
+    add_bonus_sessions,
     adjust_coins,
     adjust_sessions,
+    apply_auto_data_backfill_continue,
+    apply_auto_data_for_public_id,
     build_demo_dashboard_export_rows,
+    delete_bonus_coins,
+    delete_bonus_sessions,
     disable_override,
     enable_override,
     get_vault_participant,
     list_recent_audit_events,
     list_vault_participants,
+    patch_auto_data_schedule,
     patch_override,
+    preview_auto_data_for_public_id,
     regenerate_demo_feedback,
     regenerate_metrics,
     release_demo_feedback,
@@ -168,6 +179,188 @@ def golden_vault_adjust_coins(
         _rollback(db)
         raise HTTPException(status_code=exc.status_code, detail={"message": exc.message}) from exc
     return get_vault_participant(db, public_id)
+
+
+@router.post("/participants/{public_id}/sessions/add")
+def golden_vault_add_sessions(
+    public_id: str,
+    payload: GoldenVaultAmountRequest,
+    _vault: dict = Depends(get_current_golden_vault),
+    db: Session = Depends(get_db),
+):
+    try:
+        add_bonus_sessions(db, public_id=public_id, amount=payload.amount)
+        _persist(db)
+    except GoldenVaultError as exc:
+        _rollback(db)
+        raise HTTPException(status_code=exc.status_code, detail={"message": exc.message}) from exc
+    return get_vault_participant(db, public_id)
+
+
+@router.post("/participants/{public_id}/sessions/delete")
+def golden_vault_delete_sessions(
+    public_id: str,
+    payload: GoldenVaultAmountRequest,
+    _vault: dict = Depends(get_current_golden_vault),
+    db: Session = Depends(get_db),
+):
+    try:
+        delete_bonus_sessions(db, public_id=public_id, amount=payload.amount)
+        _persist(db)
+    except GoldenVaultError as exc:
+        _rollback(db)
+        raise HTTPException(status_code=exc.status_code, detail={"message": exc.message}) from exc
+    return get_vault_participant(db, public_id)
+
+
+@router.post("/participants/{public_id}/coins/add")
+def golden_vault_add_coins(
+    public_id: str,
+    payload: GoldenVaultAmountRequest,
+    _vault: dict = Depends(get_current_golden_vault),
+    db: Session = Depends(get_db),
+):
+    try:
+        add_bonus_coins(db, public_id=public_id, amount=payload.amount)
+        _persist(db)
+    except GoldenVaultError as exc:
+        _rollback(db)
+        raise HTTPException(status_code=exc.status_code, detail={"message": exc.message}) from exc
+    return get_vault_participant(db, public_id)
+
+
+@router.post("/participants/{public_id}/coins/delete")
+def golden_vault_delete_coins(
+    public_id: str,
+    payload: GoldenVaultAmountRequest,
+    _vault: dict = Depends(get_current_golden_vault),
+    db: Session = Depends(get_db),
+):
+    try:
+        delete_bonus_coins(db, public_id=public_id, amount=payload.amount)
+        _persist(db)
+    except GoldenVaultError as exc:
+        _rollback(db)
+        raise HTTPException(status_code=exc.status_code, detail={"message": exc.message}) from exc
+    return get_vault_participant(db, public_id)
+
+
+@router.post("/participants/{public_id}/auto-data/preview", response_model=GoldenVaultAutoDataPreviewResponse)
+def golden_vault_auto_data_preview(
+    public_id: str,
+    payload: GoldenVaultAutoDataRequest,
+    _vault: dict = Depends(get_current_golden_vault),
+    db: Session = Depends(get_db),
+) -> GoldenVaultAutoDataPreviewResponse:
+    try:
+        preview = preview_auto_data_for_public_id(db, public_id=public_id, payload=payload.model_dump())
+        _persist(db)
+    except (GoldenVaultError, ValueError) as exc:
+        _rollback(db)
+        message = exc.message if isinstance(exc, GoldenVaultError) else str(exc)
+        status = exc.status_code if isinstance(exc, GoldenVaultError) else 422
+        raise HTTPException(status_code=status, detail={"message": message}) from exc
+    return GoldenVaultAutoDataPreviewResponse(**preview)
+
+
+@router.patch("/participants/{public_id}/auto-data")
+def golden_vault_patch_auto_data(
+    public_id: str,
+    payload: GoldenVaultAutoDataPatchRequest,
+    _vault: dict = Depends(get_current_golden_vault),
+    db: Session = Depends(get_db),
+):
+    try:
+        patch_auto_data_schedule(db, public_id=public_id, payload=payload.model_dump(exclude_unset=True))
+        _persist(db)
+    except (GoldenVaultError, ValueError) as exc:
+        _rollback(db)
+        message = exc.message if isinstance(exc, GoldenVaultError) else str(exc)
+        status = exc.status_code if isinstance(exc, GoldenVaultError) else 422
+        raise HTTPException(status_code=status, detail={"message": message}) from exc
+    return get_vault_participant(db, public_id)
+
+
+@router.post("/participants/{public_id}/auto-data/apply")
+def golden_vault_apply_auto_data(
+    public_id: str,
+    payload: GoldenVaultAutoDataRequest,
+    _vault: dict = Depends(get_current_golden_vault),
+    db: Session = Depends(get_db),
+):
+    try:
+        result = apply_auto_data_for_public_id(db, public_id=public_id, payload=payload.model_dump())
+        while result.get("backfill", {}).get("remaining", 0) > 0:
+            cont = apply_auto_data_backfill_continue(db, public_id=public_id)
+            result["backfill"]["created"] = result["backfill"].get("created", 0) + cont.get("created", 0)
+            result["backfill"]["remaining"] = cont.get("remaining", 0)
+            if cont.get("created", 0) == 0:
+                break
+        _persist(db)
+    except (GoldenVaultError, ValueError) as exc:
+        _rollback(db)
+        message = exc.message if isinstance(exc, GoldenVaultError) else str(exc)
+        status = exc.status_code if isinstance(exc, GoldenVaultError) else 422
+        raise HTTPException(status_code=status, detail={"message": message}) from exc
+    row = get_vault_participant(db, public_id)
+    return {"participant": row, "backfill": result.get("backfill")}
+
+
+@router.post("/participants/auto-data/bulk/preview")
+def golden_vault_bulk_auto_data_preview(
+    payload: GoldenVaultAutoDataRequest,
+    participant_public_ids: list[str] = Query(default=[]),
+    _vault: dict = Depends(get_current_golden_vault),
+    db: Session = Depends(get_db),
+):
+    previews = []
+    for public_id in participant_public_ids:
+        try:
+            previews.append(
+                {
+                    "participantId": public_id,
+                    "preview": preview_auto_data_for_public_id(db, public_id=public_id, payload=payload.model_dump()),
+                }
+            )
+        except Exception as exc:
+            previews.append({"participantId": public_id, "error": str(exc)})
+    _persist(db)
+    return {"items": previews}
+
+
+@router.post("/participants/auto-data/bulk")
+def golden_vault_bulk_auto_data(
+    payload: GoldenVaultBulkRequest,
+    _vault: dict = Depends(get_current_golden_vault),
+    db: Session = Depends(get_db),
+):
+    config = payload.filters.get("auto_data") if payload.filters else None
+    if not config:
+        raise HTTPException(status_code=422, detail={"message": "auto_data config required in filters"})
+    ids = payload.participant_public_ids or []
+    succeeded = failed = skipped = 0
+    failures: list[dict[str, str]] = []
+    for public_id in ids:
+        try:
+            apply_auto_data_for_public_id(db, public_id=public_id, payload=config)
+            succeeded += 1
+        except GoldenVaultError as exc:
+            if exc.status_code == 404:
+                skipped += 1
+            else:
+                failed += 1
+                failures.append({"participantId": public_id, "message": exc.message})
+        except Exception as exc:
+            failed += 1
+            failures.append({"participantId": public_id, "message": str(exc)})
+    _persist(db)
+    return GoldenVaultBulkResult(
+        requested_count=len(ids),
+        succeeded_count=succeeded,
+        failed_count=failed,
+        skipped_count=skipped,
+        failures=failures,
+    )
 
 
 @router.post("/participants/{public_id}/regenerate-metrics")

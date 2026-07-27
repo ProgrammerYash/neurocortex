@@ -40,6 +40,14 @@ class GoldenDemoOverride(Base):
     last_active_minute_of_day: Mapped[int | None] = mapped_column(Integer, nullable=True)
     random_seed: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    is_auto_data_user: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    auto_data_start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    auto_data_end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    auto_data_frequency: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    auto_data_weekdays_json: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    auto_data_configured_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    auto_data_last_reconciled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     auto_session_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     next_auto_session_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_auto_session_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

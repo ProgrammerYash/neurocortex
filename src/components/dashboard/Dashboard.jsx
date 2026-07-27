@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { T } from '../../constants/tokens.js';
 import Btn from '../ui/Btn.jsx';
+import { useParticipantTokens } from '../participant/ParticipantAppShell.jsx';
 import { fetchUnreadMessageCount } from '../../store/messages.js';
 import { studyFrequencyLabel } from '../../constants/studyFrequency.js';
 import { ROUTES } from '../../routing/routePaths.js';
@@ -15,6 +15,7 @@ import { fetchMyConsentStatus } from '../../store/consent.js';
 import { calcBurnout } from '../../utils/burnout.js';
 
 export default function Dashboard({user,sessions,todaySessions,todayComplete,gameData,countdown,onNavigate,onLogout,showToast,unreadCount=0,onUnreadChange}) {
+  const P = useParticipantTokens();
   const navigate = useNavigate();
   const [tab,setTab]=useState("today");
   const [sessionBlockMessage,setSessionBlockMessage]=useState(null);
@@ -70,9 +71,9 @@ export default function Dashboard({user,sessions,todaySessions,todayComplete,gam
         <div>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <span style={{fontSize:22}}>🧠</span>
-            <span style={{fontWeight:700,fontSize:18,background:`linear-gradient(135deg,${T.teal},${T.blue})`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>NeuroCortex</span>
+            <span style={{fontWeight:700,fontSize:18,background:`linear-gradient(135deg,${P.teal},${P.blue})`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>NeuroCortex</span>
           </div>
-          <div style={{fontFamily:T.mono,fontSize:11,color:T.muted,marginTop:2}}>
+          <div style={{fontFamily:P.mono,fontSize:11,color:P.muted,marginTop:2}}>
             <span>{user?.id}</span>
           </div>
         </div>
@@ -90,7 +91,7 @@ export default function Dashboard({user,sessions,todaySessions,todayComplete,gam
                 minWidth:18,
                 height:18,
                 borderRadius:999,
-                background:T.red,
+                background:P.red,
                 color:'#fff',
                 fontSize:10,
                 fontWeight:700,
@@ -103,9 +104,9 @@ export default function Dashboard({user,sessions,todaySessions,todayComplete,gam
               </span>
             )}
           </Btn>
-          {g&&<div style={{display:"flex",alignItems:"center",gap:6,background:T.surface,borderRadius:20,padding:"6px 12px",border:`1px solid ${T.faint}`}}>
+          {g&&<div style={{display:"flex",alignItems:"center",gap:6,background:P.surface,borderRadius:20,padding:"6px 12px",border:`1px solid ${P.faint}`}}>
             <span style={{fontSize:14}}>🪙</span>
-            <span style={{fontSize:13,fontWeight:600,color:T.gold}}>{g.coins}</span>
+            <span style={{fontSize:13,fontWeight:600,color:P.gold}}>{g.coins}</span>
           </div>}
           <Btn onClick={onLogout} style={{fontSize:12,padding:"7px 12px"}}>Sign Out</Btn>
         </div>
@@ -125,18 +126,18 @@ export default function Dashboard({user,sessions,todaySessions,todayComplete,gam
           {label:"Pet Level", val:`Lv.${g?.pet?.level||1}`,sub:g?.pet?.evolution||"baby"},
           {label:"Week %",    val:sessions.length>=7?Math.round(sessions.slice(-7).length/7*100)+"%":"—",sub:"completion"},
         ].map(s=>(
-          <div key={s.label} style={{background:T.card,border:`1px solid ${T.cardBorder}`,borderRadius:10,padding:"12px 10px",textAlign:"center"}}>
-            <div style={{fontSize:11,color:T.muted,marginBottom:4}}>{s.label}</div>
-            <div style={{fontSize:20,fontWeight:700,color:T.teal}}>{s.val}</div>
-            <div style={{fontSize:11,color:T.muted}}>{s.sub}</div>
+          <div key={s.label} style={{background:P.card,border:`1px solid ${P.cardBorder}`,borderRadius:10,padding:"12px 10px",textAlign:"center"}}>
+            <div style={{fontSize:11,color:P.muted,marginBottom:4}}>{s.label}</div>
+            <div style={{fontSize:20,fontWeight:700,color:P.teal}}>{s.val}</div>
+            <div style={{fontSize:11,color:P.muted}}>{s.sub}</div>
           </div>
         ))}
       </div>
 
       {/* Tabs */}
-      <div style={{display:"flex",gap:4,background:T.surface,padding:4,borderRadius:10,marginBottom:16}}>
+      <div style={{display:"flex",gap:4,background:P.surface,padding:4,borderRadius:10,marginBottom:16}}>
         {["today","study","progress"].map(t=>(
-          <button key={t} onClick={()=>setTab(t)} style={{flex:1,padding:"9px",border:"none",borderRadius:7,fontWeight:500,fontSize:13,cursor:"pointer",background:tab===t?T.card:T.surface,color:tab===t?T.teal:T.muted,transition:"all .2s",textTransform:"capitalize"}}>
+          <button key={t} onClick={()=>setTab(t)} style={{flex:1,padding:"9px",border:"none",borderRadius:7,fontWeight:500,fontSize:13,cursor:"pointer",background:tab===t?P.card:P.surface,color:tab===t?P.teal:P.muted,transition:"all .2s",textTransform:"capitalize"}}>
             {t==="today"?"Today":t==="study"?"Enrollment":"Progress"}
           </button>
         ))}
@@ -147,9 +148,9 @@ export default function Dashboard({user,sessions,todaySessions,todayComplete,gam
       {tab==="progress"&&<ProgressTab sessions={sessions} />}
 
       {/* Bottom nav */}
-      <div style={{position:"fixed",bottom:0,left:0,right:0,background:T.surface,borderTop:`1px solid ${T.faint}`,display:"flex",justifyContent:"space-around",padding:"10px 0 12px",zIndex:100}}>
+      <div style={{position:"fixed",bottom:0,left:0,right:0,background:P.surface,borderTop:`1px solid ${P.faint}`,display:"flex",justifyContent:"space-around",padding:"10px 0 12px",zIndex:100}}>
         {[["🏠","Home","dashboard"],["🧠","NeuroVerse","neuroverse"],["🐾","My Pet","pet"],["🏆","Awards","achievements"]].map(([e,l,s])=>(
-          <button key={s} onClick={()=>onNavigate(s)} style={{background:"none",border:"none",color:T.muted,fontSize:11,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"4px 16px",cursor:"pointer"}}>
+          <button key={s} onClick={()=>onNavigate(s)} style={{background:"none",border:"none",color:P.muted,fontSize:11,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"4px 16px",cursor:"pointer"}}>
             <span style={{fontSize:20}}>{e}</span>{l}
           </button>
         ))}

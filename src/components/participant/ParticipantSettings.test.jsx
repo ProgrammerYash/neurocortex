@@ -6,9 +6,13 @@ import { updateParticipantStudyFrequency } from '../../store/preferences.js';
 
 const setTheme = vi.fn();
 
-vi.mock('./ParticipantAppShell.jsx', () => ({
-  useParticipantTheme: () => ({ theme: 'system', setTheme }),
-}));
+vi.mock('./ParticipantAppShell.jsx', async importOriginal => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    useParticipantTheme: () => ({ theme: 'system', resolvedTheme: 'dark', setTheme }),
+  };
+});
 
 vi.mock('../../store/preferences.js', () => ({
   updateParticipantStudyFrequency: vi.fn(),

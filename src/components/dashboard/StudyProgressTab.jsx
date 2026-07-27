@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { T } from '../../constants/tokens.js';
 import Card from '../ui/Card.jsx';
+import { useParticipantTokens } from '../participant/ParticipantAppShell.jsx';
 import { fetchMyStudyProgress } from '../../store/consent.js';
 
 function formatWeekRange(weekStart, weekEnd) {
@@ -16,6 +16,7 @@ function formatWeekRange(weekStart, weekEnd) {
 }
 
 export default function StudyProgressTab() {
+  const P = useParticipantTokens();
   const [progress, setProgress] = useState(null);
   const [error, setError] = useState(null);
 
@@ -28,10 +29,10 @@ export default function StudyProgressTab() {
   }, []);
 
   if (error) {
-    return <Card><p style={{ color: T.red, fontSize: 14 }}>{error}</p></Card>;
+    return <Card><p style={{ color: P.red, fontSize: 14 }}>{error}</p></Card>;
   }
   if (!progress) {
-    return <Card><p style={{ color: T.muted, textAlign: 'center', padding: '2rem' }}>Loading study progress…</p></Card>;
+    return <Card><p className="participant-muted" style={{ textAlign: 'center', padding: '2rem' }}>Loading study progress…</p></Card>;
   }
 
   const weeklyTarget = progress.weekly_target;
@@ -45,24 +46,21 @@ export default function StudyProgressTab() {
       <Card>
         <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>Study Progress</div>
         {weeklyLine ? (
-          <div style={{ fontSize: 13, color: T.muted, lineHeight: 1.7 }} data-testid="weekly-session-progress">
+          <div className="participant-muted" style={{ fontSize: 13, lineHeight: 1.7 }} data-testid="weekly-session-progress">
             {weeklyLine}
             {weekRange ? (
               <span style={{ display: 'block', fontSize: 12, marginTop: 4 }}>Week of {weekRange}</span>
             ) : null}
           </div>
         ) : null}
-        <div style={{ fontSize: 13, color: T.muted, lineHeight: 1.7, marginTop: weeklyLine ? 8 : 0 }}>
-          Completed sessions: <strong style={{ color: T.teal }}>{progress.completed_sessions}</strong> / {progress.required_sessions}
+        <div className="participant-muted" style={{ fontSize: 13, marginTop: weeklyLine ? 8 : 0 }}>
+          Status: <strong style={{ color: P.text }}>{progress.study_status.replace(/_/g, ' ')}</strong>
         </div>
-        <div style={{ fontSize: 13, color: T.muted, marginTop: 6 }}>
-          Status: <strong>{progress.study_status.replace(/_/g, ' ')}</strong>
-        </div>
-        <div style={{ fontSize: 13, color: T.muted, marginTop: 6 }}>
+        <div className="participant-muted" style={{ fontSize: 13, marginTop: 6 }}>
           Today&apos;s session: {progress.today_session_complete ? 'Complete' : 'Not complete'}
         </div>
         {progress.next_eligible_session_at ? (
-          <div style={{ fontSize: 13, color: T.muted, marginTop: 6 }}>
+          <div className="participant-muted" style={{ fontSize: 13, marginTop: 6 }}>
             Next eligible session: {new Date(progress.next_eligible_session_at).toLocaleString()}
           </div>
         ) : null}
@@ -70,8 +68,8 @@ export default function StudyProgressTab() {
 
       {!progress.session_can_start && progress.session_block_message ? (
         <Card style={{ background: 'rgba(252,129,129,0.08)', border: '1px solid rgba(252,129,129,0.35)' }}>
-          <div style={{ fontWeight: 600, color: T.red, marginBottom: 8 }}>Another session cannot begin yet</div>
-          <div style={{ fontSize: 13, color: T.muted, lineHeight: 1.7 }}>{progress.session_block_message}</div>
+          <div style={{ fontWeight: 600, color: P.red, marginBottom: 8 }}>Another session cannot begin yet</div>
+          <div className="participant-muted" style={{ fontSize: 13, lineHeight: 1.7 }}>{progress.session_block_message}</div>
         </Card>
       ) : null}
     </div>

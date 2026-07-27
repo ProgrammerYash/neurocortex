@@ -256,7 +256,13 @@ def get_my_game(
 ) -> dict | None:
     raw = get_participant_game_data(db, participant)
     override = get_enabled_override(db, participant.id)
-    return apply_display_to_game_data(raw, override)
+    display = apply_display_to_game_data(raw, override)
+    if not display:
+        return None
+    try:
+        return GameDataPayload.model_validate(display).model_dump()
+    except Exception:
+        return None
 
 
 @router.put("/me/game", response_model=GameDataPayload)

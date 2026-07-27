@@ -6,6 +6,7 @@ import {
   setParticipantTheme,
   normalizeParticipantTheme,
 } from '../../store/participantTheme.js';
+import { participantTokens } from '../../constants/participantTokens.js';
 import '../../styles/participant-theme.css';
 
 const ParticipantThemeContext = createContext({
@@ -14,8 +15,15 @@ const ParticipantThemeContext = createContext({
   setTheme: () => {},
 });
 
+export { ParticipantThemeContext };
+
 export function useParticipantTheme() {
   return useContext(ParticipantThemeContext);
+}
+
+export function useParticipantTokens() {
+  const { resolvedTheme } = useContext(ParticipantThemeContext);
+  return useMemo(() => participantTokens(resolvedTheme), [resolvedTheme]);
 }
 
 export default function ParticipantAppShell({ participantId, children }) {

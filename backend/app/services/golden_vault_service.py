@@ -24,6 +24,16 @@ from app.services.golden_vault_auto_session_service import (
     reschedule_auto_session,
     run_auto_session_now,
 )
+from app.services.golden_vault_auto_data_service import (
+    apply_auto_data_config,
+    apply_backfill_batch,
+    auto_data_fields_for_row,
+    compute_auto_data_preview,
+    map_participant_frequency,
+    pause_auto_data,
+    resume_auto_data,
+)
+from app.services.golden_vault_display_service import resolve_participant_display_metrics
 from app.services.golden_vault_profile import apply_profile_to_override, generate_demo_profile
 from app.services.researcher_dashboard_service import _aggregate_sessions, _load_sessions_by_participant
 from app.services.study_guard import apply_participant_filter, is_synthetic_public_id
@@ -167,13 +177,19 @@ def _participant_row_payload(
     enabled = bool(override and override.enabled)
     bonus_sessions = max(0, int(override.bonus_sessions or 0)) if override else 0
     bonus_coins = max(0, int(override.bonus_coins or 0)) if override else 0
+    display = resolve_participant_display_metrics(
+        participant=participant,
+        real_metrics={"sessions_completed": real_sessions, "sessions_started": real_sessions},
+        golden_override=override if enabled else None,
+    )
+    displayed_sessions = int(display.get("displayedCompletedSessions") or real_sessions)
     payload = {
         "participantId": participant.public_id,
         "displayName": display_name,
         "enabled": enabled,
         "realCompletedSessions": real_sessions,
-        "bonusSessions": bonus_sessions,
-        "displayedCompletedSessions": real_sessions + (bonus_sessions if enabled else 0),
+        "bonusSessions": bonus_sessions if enabled else 0,
+        "displayedCompletedSessions": displayed_sessions,
         "earnedCoins": earned,
         "bonusCoins": bonus_coins if enabled else 0,
         "displayedCoins": earned + (bonus_coins if enabled else 0),
@@ -182,6 +198,7 @@ def _participant_row_payload(
         "updatedAt": override.updated_at.isoformat() if override and override.updated_at else None,
     }
     payload.update(auto_session_fields_for_row(override))
+    payload.update(auto_data_fields_for_row(override))
     return payload
 
 
@@ -346,6 +363,8 @@ def adjust_sessions(
         row.bonus_sessions = max(0, int(set_to))
     elif delta is not None:
         row.bonus_sessions = max(0, before + int(delta))
+    if not row.enabled and row.bonus_sessions > 0:
+        row.enabled = True
     _touch(row)
     record_audit_event(
         db,
@@ -359,6 +378,53 @@ def adjust_sessions(
             "delta": delta,
             "set_to": set_to,
         },
+    )
+    db.flush()
+    db.refresh(row)
+    return row
+
+
+def add_bonus_sessions(db: Session, *, public_id: str, amount: int) -> GoldenDemoOverride:
+    if amount < 1:
+        raise GoldenVaultError("Amount must be at least 1", status_code=422)
+    participant = _resolve_participant(db, public_id)
+    row = _get_or_create_override(db, participant)
+    before = int(row.bonus_sessions or 0)
+    row.bonus_sessions = before + int(amount)
+    if not row.enabled:
+        row.enabled = True
+    _touch(row)
+    record_audit_event(
+        db,
+        actor_type="golden_vault",
+        event_type="golden_vault.sessions_manually_added",
+        participant_id=participant.id,
+        metadata={"participant_public_id": participant.public_id, "amount": amount, "before": before, "after": row.bonus_sessions},
+    )
+    db.flush()
+    db.refresh(row)
+    return row
+
+
+def delete_bonus_sessions(db: Session, *, public_id: str, amount: int) -> GoldenDemoOverride:
+    if amount < 1:
+        raise GoldenVaultError("Amount must be at least 1", status_code=422)
+    participant = _resolve_participant(db, public_id)
+    row = _get_or_create_override(db, participant)
+    before = int(row.bonus_sessions or 0)
+    if amount > before:
+        raise GoldenVaultError(
+            f"Cannot remove {amount} bonus sessions; only {before} available.",
+            status_code=422,
+        )
+    row.bonus_sessions = before - int(amount)
+    _touch(row)
+    record_audit_event(
+        db,
+        actor_type="golden_vault",
+        event_type="golden_vault.sessions_manually_deleted",
+        participant_id=participant.id,
+        metadata={"participant_public_id": participant.public_id, "amount": amount, "before": before, "after": row.bonus_sessions},
     )
     db.flush()
     db.refresh(row)
@@ -379,6 +445,8 @@ def adjust_coins(
         row.bonus_coins = max(0, int(set_to))
     elif delta is not None:
         row.bonus_coins = max(0, before + int(delta))
+    if not row.enabled and row.bonus_coins > 0:
+        row.enabled = True
     _touch(row)
     record_audit_event(
         db,
@@ -392,6 +460,39 @@ def adjust_coins(
             "delta": delta,
             "set_to": set_to,
         },
+    )
+    db.flush()
+    db.refresh(row)
+    return row
+
+
+def add_bonus_coins(db: Session, *, public_id: str, amount: int) -> GoldenDemoOverride:
+    if amount < 1:
+        raise GoldenVaultError("Amount must be at least 1", status_code=422)
+    return adjust_coins(db, public_id=public_id, delta=amount)
+
+
+def delete_bonus_coins(db: Session, *, public_id: str, amount: int) -> GoldenDemoOverride:
+    if amount < 1:
+        raise GoldenVaultError("Amount must be at least 1", status_code=422)
+    participant = _resolve_participant(db, public_id)
+    row = _get_or_create_override(db, participant)
+    before = int(row.bonus_coins or 0)
+    if amount > before:
+        raise GoldenVaultError(
+            f"Cannot remove {amount} bonus coins; only {before} available.",
+            status_code=422,
+        )
+    row.bonus_coins = before - int(amount)
+    if not row.enabled and row.bonus_coins > 0:
+        row.enabled = True
+    _touch(row)
+    record_audit_event(
+        db,
+        actor_type="golden_vault",
+        event_type="golden_vault.coins_manually_deleted",
+        participant_id=participant.id,
+        metadata={"participant_public_id": participant.public_id, "amount": amount, "before": before, "after": row.bonus_coins},
     )
     db.flush()
     db.refresh(row)
@@ -597,11 +698,13 @@ def run_bulk_action(db: Session, *, payload: dict[str, Any]) -> dict[str, Any]:
     handlers = {
         "enable": lambda pid: enable_override(db, public_id=pid),
         "disable": lambda pid: disable_override(db, public_id=pid),
-        "add_sessions": lambda pid: adjust_sessions(db, public_id=pid, delta=int(amount or 0)),
-        "subtract_sessions": lambda pid: adjust_sessions(db, public_id=pid, delta=-int(amount or 0)),
+        "add_sessions": lambda pid: add_bonus_sessions(db, public_id=pid, amount=int(amount or 0)),
+        "delete_sessions": lambda pid: delete_bonus_sessions(db, public_id=pid, amount=int(amount or 0)),
+        "subtract_sessions": lambda pid: delete_bonus_sessions(db, public_id=pid, amount=int(amount or 0)),
         "set_sessions": lambda pid: adjust_sessions(db, public_id=pid, set_to=int(set_to if set_to is not None else amount or 0)),
-        "add_coins": lambda pid: adjust_coins(db, public_id=pid, delta=int(amount or 0)),
-        "subtract_coins": lambda pid: adjust_coins(db, public_id=pid, delta=-int(amount or 0)),
+        "add_coins": lambda pid: add_bonus_coins(db, public_id=pid, amount=int(amount or 0)),
+        "delete_coins": lambda pid: delete_bonus_coins(db, public_id=pid, amount=int(amount or 0)),
+        "subtract_coins": lambda pid: delete_bonus_coins(db, public_id=pid, amount=int(amount or 0)),
         "set_coins": lambda pid: adjust_coins(db, public_id=pid, set_to=int(set_to if set_to is not None else amount or 0)),
         "regenerate_metrics": lambda pid: regenerate_metrics(db, public_id=pid),
         "release_feedback": lambda pid: release_demo_feedback(db, public_id=pid),
@@ -644,6 +747,126 @@ def run_bulk_action(db: Session, *, payload: dict[str, Any]) -> dict[str, Any]:
     )
     db.flush()
     return result
+
+
+def preview_auto_data_for_public_id(
+    db: Session,
+    *,
+    public_id: str,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    participant = _resolve_participant(db, public_id)
+    row = _get_or_create_override(db, participant)
+    from datetime import date as date_cls
+
+    start = date_cls.fromisoformat(str(payload["start_date"]))
+    end_raw = payload.get("end_date")
+    end = date_cls.fromisoformat(str(end_raw)) if end_raw else None
+    frequency = map_participant_frequency(payload.get("frequency") or participant.study_frequency)
+    weekdays = payload.get("weekdays")
+    real_sessions = _real_completed_sessions(db, participant.id)
+    preview = compute_auto_data_preview(
+        db,
+        participant=participant,
+        row=row,
+        start_date=start,
+        end_date=end,
+        frequency=frequency,
+        weekdays=weekdays,
+        real_completed_sessions=real_sessions,
+    )
+    record_audit_event(
+        db,
+        actor_type="golden_vault",
+        event_type="golden_vault.auto_data_preview",
+        participant_id=participant.id,
+        metadata={"participant_public_id": participant.public_id},
+    )
+    db.flush()
+    return preview
+
+
+def apply_auto_data_for_public_id(
+    db: Session,
+    *,
+    public_id: str,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    participant = _resolve_participant(db, public_id)
+    row = _get_or_create_override(db, participant)
+    from datetime import date as date_cls
+
+    start = date_cls.fromisoformat(str(payload["start_date"]))
+    end_raw = payload.get("end_date")
+    end = date_cls.fromisoformat(str(end_raw)) if end_raw else None
+    frequency = map_participant_frequency(payload.get("frequency") or participant.study_frequency)
+    weekdays = payload.get("weekdays")
+    enable_future = payload.get("enable_future", True)
+    apply_auto_data_config(
+        db,
+        participant=participant,
+        row=row,
+        start_date=start,
+        end_date=end,
+        frequency=frequency,
+        weekdays=weekdays,
+        enable_future=bool(enable_future),
+    )
+    batch = apply_backfill_batch(db, participant=participant, row=row)
+    db.flush()
+    db.refresh(row)
+    return {"backfill": batch, "bonusSessions": row.bonus_sessions}
+
+
+def apply_auto_data_backfill_continue(db: Session, *, public_id: str) -> dict[str, Any]:
+    participant = _resolve_participant(db, public_id)
+    row = _get_or_create_override(db, participant)
+    batch = apply_backfill_batch(db, participant=participant, row=row)
+    db.flush()
+    return batch
+
+
+def patch_auto_data_schedule(
+    db: Session,
+    *,
+    public_id: str,
+    payload: dict[str, Any],
+) -> GoldenDemoOverride:
+    participant = _resolve_participant(db, public_id)
+    row = _get_or_create_override(db, participant)
+    if payload.get("paused") is True:
+        pause_auto_data(db, row, participant)
+    elif payload.get("paused") is False:
+        resume_auto_data(db, row, participant)
+    if any(k in payload for k in ("start_date", "end_date", "frequency", "weekdays")):
+        from datetime import date as date_cls
+
+        start = date_cls.fromisoformat(str(payload.get("start_date") or row.auto_data_start_date))
+        end_raw = payload.get("end_date", row.auto_data_end_date)
+        end = date_cls.fromisoformat(str(end_raw)) if end_raw else None
+        frequency = map_participant_frequency(payload.get("frequency") or row.auto_data_frequency or participant.study_frequency)
+        weekdays = payload.get("weekdays", row.auto_data_weekdays_json)
+        apply_auto_data_config(
+            db,
+            participant=participant,
+            row=row,
+            start_date=start,
+            end_date=end,
+            frequency=frequency,
+            weekdays=weekdays,
+            enable_future=bool(row.auto_session_enabled),
+        )
+        record_audit_event(
+            db,
+            actor_type="golden_vault",
+            event_type="golden_vault.auto_data_schedule_updated",
+            participant_id=participant.id,
+            metadata={"participant_public_id": participant.public_id},
+        )
+    _touch(row)
+    db.flush()
+    db.refresh(row)
+    return row
 
 
 def list_recent_audit_events(db: Session, *, limit: int = 50) -> list[dict[str, Any]]:

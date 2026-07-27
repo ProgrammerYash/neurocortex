@@ -125,6 +125,55 @@ export async function goldenVaultPatchParticipant(publicId, body) {
   });
 }
 
+export async function goldenVaultAddSessions(publicId, amount) {
+  return goldenApiRequest(`/v1/golden-vault/participants/${encodeURIComponent(publicId)}/sessions/add`, {
+    method: 'POST',
+    body: { amount },
+  });
+}
+
+export async function goldenVaultDeleteSessions(publicId, amount) {
+  return goldenApiRequest(`/v1/golden-vault/participants/${encodeURIComponent(publicId)}/sessions/delete`, {
+    method: 'POST',
+    body: { amount },
+  });
+}
+
+export async function goldenVaultAddCoins(publicId, amount) {
+  return goldenApiRequest(`/v1/golden-vault/participants/${encodeURIComponent(publicId)}/coins/add`, {
+    method: 'POST',
+    body: { amount },
+  });
+}
+
+export async function goldenVaultDeleteCoins(publicId, amount) {
+  return goldenApiRequest(`/v1/golden-vault/participants/${encodeURIComponent(publicId)}/coins/delete`, {
+    method: 'POST',
+    body: { amount },
+  });
+}
+
+export async function goldenVaultPreviewAutoData(publicId, body) {
+  return goldenApiRequest(`/v1/golden-vault/participants/${encodeURIComponent(publicId)}/auto-data/preview`, {
+    method: 'POST',
+    body,
+  });
+}
+
+export async function goldenVaultApplyAutoData(publicId, body) {
+  return goldenApiRequest(`/v1/golden-vault/participants/${encodeURIComponent(publicId)}/auto-data/apply`, {
+    method: 'POST',
+    body,
+  });
+}
+
+export async function goldenVaultPatchAutoData(publicId, body) {
+  return goldenApiRequest(`/v1/golden-vault/participants/${encodeURIComponent(publicId)}/auto-data`, {
+    method: 'PATCH',
+    body,
+  });
+}
+
 export async function goldenVaultAdjustSessions(publicId, body) {
   return goldenApiRequest(`/v1/golden-vault/participants/${encodeURIComponent(publicId)}/sessions`, {
     method: 'POST',

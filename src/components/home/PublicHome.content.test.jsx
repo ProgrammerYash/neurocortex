@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import PublicHome from './PublicHome.jsx';
@@ -115,12 +115,13 @@ describe('PublicHome presentation content', () => {
     expect(screen.queryByRole('button', { name: 'Close menu' })).not.toBeInTheDocument();
   });
 
-  it('shows four hero actions including Researcher Access and no footer link', () => {
+  it('shows four hero actions and bottom Researcher Access without footer link', () => {
     renderAt('/', <PublicHome />);
     const hero = document.querySelector('.home-hero__actions');
     expect(hero?.querySelectorAll('button')).toHaveLength(4);
-    expect(hero?.querySelector('button')?.textContent).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: 'Researcher Access' }).length).toBeGreaterThanOrEqual(1);
+    expect(hero?.querySelector('button.home-btn--explore')?.textContent).toBe('Explore the Research');
+    const cta = document.querySelector('.home-cta');
+    expect(within(cta).getByRole('button', { name: 'Researcher Access' })).toBeInTheDocument();
     expect(screen.queryByText('NeuroCortex research project website')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Researcher access' })).not.toBeInTheDocument();
   });

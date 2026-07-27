@@ -54,7 +54,7 @@ export default function PublicHome() {
                 <p>{openingSlide.school}</p>
               </div>
               <div className="home-hero__actions">
-                <button type="button" className="home-btn" onClick={scrollToResearch}>Explore the Research</button>
+                <button type="button" className="home-btn home-btn--explore" onClick={scrollToResearch}>Explore the Research</button>
                 <button type="button" className="home-btn home-btn--primary" onClick={() => navigate(ROUTES.join)}>Join the Study</button>
                 <button type="button" className="home-btn" onClick={() => navigate(ROUTES.participantSignIn)}>Participant Sign In</button>
                 <button type="button" className="home-btn" onClick={() => navigate(ROUTES.researcherSignIn)}>Researcher Access</button>
@@ -215,7 +215,8 @@ export default function PublicHome() {
             <div className="home-cta__actions">
               <button type="button" className="home-btn home-btn--primary" onClick={() => navigate(ROUTES.join)}>Join the Study</button>
               <button type="button" className="home-btn" onClick={() => navigate(ROUTES.participantSignIn)}>Participant Sign In</button>
-              <Link to={ROUTES.home} className="home-btn" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>Back to Top</Link>
+              <button type="button" className="home-btn" onClick={() => navigate(ROUTES.researcherSignIn)}>Researcher Access</button>
+              <Link to={ROUTES.home} className="home-btn home-btn--top" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>Back to Top</Link>
             </div>
           </div>
         </section>

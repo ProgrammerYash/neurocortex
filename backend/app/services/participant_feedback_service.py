@@ -361,7 +361,7 @@ def get_participant_model_feedback(db: Session, participant: Participant) -> dic
     from app.services.golden_vault_service import get_enabled_override
 
     override = get_enabled_override(db, participant.id)
-    if override is not None and override.simulated_feedback_status:
+    if override is not None and override.is_auto_data_user and override.simulated_feedback_status:
         if override.simulated_feedback_status == "Revoked":
             return {"status": "not_released", "isSimulated": True}
         if override.simulated_feedback_status == "Not Released":

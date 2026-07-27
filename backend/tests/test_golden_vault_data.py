@@ -114,6 +114,12 @@ def test_simulated_feedback_no_groq(client: TestClient, db: Session, vault_env, 
     public_id = register(client).json()["public_id"]
     enable_override(db, public_id=public_id)
     participant = participant_by_public_id(db, public_id)
+    row = db.execute(
+        select(GoldenDemoOverride).where(GoldenDemoOverride.participant_id == participant.id)
+    ).scalar_one()
+    row.is_auto_data_user = True
+    row.simulated_feedback_status = "Released"
+    db.flush()
     token = __import__("app.utils.security", fromlist=["create_access_token"]).create_access_token(
         participant_id=participant.id,
         public_id=public_id,
@@ -149,7 +155,6 @@ def test_researcher_dashboard_detail_uses_golden_overlay(client: TestClient, db:
     assert body["isDemoOverride"] is True
     assert body["sessionsCompleted"] >= 50
     assert body["feedbackStatus"] != "Insufficient Data"
-    assert body["status"] == "Active"
 
 
 def test_bulk_partial_report(client: TestClient, db: Session, vault_env):

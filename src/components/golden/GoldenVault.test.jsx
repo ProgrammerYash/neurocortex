@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import GoldenVaultPage from './GoldenVaultPage.jsx';
 import * as goldenVault from '../../store/goldenVault.js';
@@ -60,7 +60,7 @@ describe('GoldenVaultPage', () => {
   it('loads participant rows', async () => {
     render(<MemoryRouter><GoldenVaultPage /></MemoryRouter>);
     expect(await screen.findByText('NC-DEMO1')).toBeInTheDocument();
-    expect(screen.getByText(/Auto Session:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Auto Data:/i)).toBeInTheDocument();
     expect(screen.getByText(/Next: Jul 28, 2026 4:37 PM/i)).toBeInTheDocument();
   });
 
@@ -77,10 +77,11 @@ describe('GoldenVaultPage', () => {
     await screen.findByRole('checkbox', { name: /Select NC-DEMO1/i });
     fireEvent.click(screen.getByLabelText('Select all visible'));
     fireEvent.click(screen.getByText('Add Sessions'));
-    const input = screen.getByRole('spinbutton');
+    const dialog = screen.getByRole('dialog');
+    const input = within(dialog).getByRole('spinbutton');
     fireEvent.change(input, { target: { value: '-3' } });
     fireEvent.click(screen.getByText('Apply'));
-    expect(await screen.findByRole('alert')).toHaveTextContent(/non-negative/i);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/whole number/i);
   });
 
   it('redirects when unauthorized', () => {

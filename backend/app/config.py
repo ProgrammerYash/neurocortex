@@ -4,6 +4,51 @@ from typing import Literal
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Local Vite dev servers merged when ENVIRONMENT=development (never used alone in production).
+_LOCAL_DEV_CORS_ORIGINS: tuple[str, ...] = (
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+)
+
+
+def parse_cors_allowed_origins(raw: str | None) -> list[str]:
+    """Parse comma-separated browser origins; ignores blanks and wildcard entries."""
+    if not raw:
+        return []
+    seen: set[str] = set()
+    origins: list[str] = []
+    for part in raw.split(","):
+        origin = part.strip()
+        if not origin or origin == "*" or origin in seen:
+            continue
+        seen.add(origin)
+        origins.append(origin)
+    return origins
+
+
+def effective_cors_origins(settings: "Settings") -> list[str]:
+    """Explicit origin list for CORSMiddleware (credentials require named origins, never *)."""
+    configured = parse_cors_allowed_origins(settings.cors_allowed_origins)
+    if settings.environment == "development":
+        merged: list[str] = []
+        for origin in (*_LOCAL_DEV_CORS_ORIGINS, *configured):
+            if origin not in merged:
+                merged.append(origin)
+        return merged
+    return configured
+
+
+def cors_middleware_options(settings: "Settings") -> dict[str, object]:
+    allow_origins = effective_cors_origins(settings)
+    if "*" in allow_origins:
+        raise ValueError("Wildcard CORS origins are not permitted when allow_credentials is enabled")
+    return {
+        "allow_origins": allow_origins,
+        "allow_credentials": True,
+        "allow_methods": ["*"],
+        "allow_headers": ["*"],
+    }
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -80,6 +125,11 @@ class Settings(BaseSettings):
     golden_auto_session_batch_size: int = Field(
         default=100,
         validation_alias="GOLDEN_AUTO_SESSION_BATCH_SIZE",
+    )
+    cors_allowed_origins: str = Field(
+        default="",
+        validation_alias="CORS_ALLOWED_ORIGINS",
+        description="Comma-separated frontend origins for credentialed CORS (include production Vercel URL)",
     )
 
     @model_validator(mode="after")

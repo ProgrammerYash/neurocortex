@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { T } from '../../constants/tokens.js';
 import Card from '../ui/Card.jsx';
 import Btn from '../ui/Btn.jsx';
 import SectionTitle from '../ui/SectionTitle.jsx';
+import { useParticipantTokens } from '../participant/ParticipantAppShell.jsx';
 import {
   fetchMyConsentStatus,
   requestDataDeletion,
@@ -10,6 +10,7 @@ import {
 } from '../../store/consent.js';
 
 export default function ConsentStatusTab({ showToast }) {
+  const P = useParticipantTokens();
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
@@ -58,28 +59,28 @@ export default function ConsentStatusTab({ showToast }) {
   };
 
   if (loading) {
-    return <Card><p style={{ color: T.muted, textAlign: 'center', padding: '2rem', fontSize: 14 }}>Loading enrollment status…</p></Card>;
+    return <Card><p style={{ color: P.muted, textAlign: 'center', padding: '2rem', fontSize: 14 }}>Loading enrollment status…</p></Card>;
   }
 
   if (!status) {
-    return <Card><p style={{ color: T.muted, textAlign: 'center', padding: '2rem', fontSize: 14 }}>Enrollment status unavailable.</p></Card>;
+    return <Card><p style={{ color: P.muted, textAlign: 'center', padding: '2rem', fontSize: 14 }}>Enrollment status unavailable.</p></Card>;
   }
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <Card>
         <SectionTitle>Research Enrollment</SectionTitle>
-        <p style={{ fontSize: 13, color: T.muted, marginBottom: 16, lineHeight: 1.5 }}>
+        <p style={{ fontSize: 13, color: P.muted, marginBottom: 16, lineHeight: 1.5 }}>
           This page shows your voluntary research enrollment status. It is not a medical or diagnostic record.
         </p>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13 }}>
-          <span style={{ color: T.muted }}>Electronic consent</span>
-          <span style={{ color: T.teal, fontWeight: 600 }}>
+          <span style={{ color: P.muted }}>Electronic consent</span>
+          <span style={{ color: P.teal, fontWeight: 600 }}>
             {status.consent_recorded === false ? 'Unavailable' : 'Recorded'}
           </span>
         </div>
         {!status.session_eligible && status.session_block_message && (
-          <div style={{ marginTop: 16, padding: 12, borderRadius: 8, background: `${T.red}15`, color: T.red, fontSize: 12 }}>
+          <div style={{ marginTop: 16, padding: 12, borderRadius: 8, background: `${P.red}15`, color: P.red, fontSize: 12 }}>
             Sessions are currently unavailable: {status.session_block_message}
           </div>
         )}
@@ -88,16 +89,16 @@ export default function ConsentStatusTab({ showToast }) {
       {status.withdrawal_status !== 'withdrawn' && (
         <Card>
           <SectionTitle>Withdraw From Study</SectionTitle>
-          <p style={{ fontSize: 13, color: T.muted, marginBottom: 12, lineHeight: 1.5 }}>
+          <p style={{ fontSize: 13, color: P.muted, marginBottom: 12, lineHeight: 1.5 }}>
             You may stop participating at any time. Existing study records are retained according to the active protocol.
           </p>
           {!confirmWithdraw ? (
-            <Btn onClick={() => setConfirmWithdraw(true)} style={{ color: T.red, borderColor: `${T.red}55` }}>
+            <Btn onClick={() => setConfirmWithdraw(true)} style={{ color: P.red, borderColor: `${P.red}55` }}>
               Withdraw from study
             </Btn>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <p style={{ fontSize: 13, color: T.red }}>Confirm withdrawal? You can contact the research team if you wish to rejoin later.</p>
+              <p style={{ fontSize: 13, color: P.red }}>Confirm withdrawal? You can contact the research team if you wish to rejoin later.</p>
               <div style={{ display: 'flex', gap: 8 }}>
                 <Btn primary onClick={onWithdraw} disabled={busy}>Confirm withdrawal</Btn>
                 <Btn onClick={() => setConfirmWithdraw(false)} disabled={busy}>Cancel</Btn>
@@ -110,14 +111,14 @@ export default function ConsentStatusTab({ showToast }) {
       {!status.deletion_requested && (
         <Card>
           <SectionTitle>Request Data Deletion</SectionTitle>
-          <p style={{ fontSize: 13, color: T.muted, marginBottom: 12, lineHeight: 1.5 }}>
+          <p style={{ fontSize: 13, color: P.muted, marginBottom: 12, lineHeight: 1.5 }}>
             You may request deletion of your research data. The research team will review the request under the active protocol.
           </p>
           {!confirmDeletion ? (
             <Btn onClick={() => setConfirmDeletion(true)}>Request data deletion</Btn>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <p style={{ fontSize: 13, color: T.muted }}>Submit a deletion request to the research team?</p>
+              <p style={{ fontSize: 13, color: P.muted }}>Submit a deletion request to the research team?</p>
               <div style={{ display: 'flex', gap: 8 }}>
                 <Btn primary onClick={onDeletionRequest} disabled={busy}>Submit request</Btn>
                 <Btn onClick={() => setConfirmDeletion(false)} disabled={busy}>Cancel</Btn>

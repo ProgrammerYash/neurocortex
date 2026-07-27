@@ -205,6 +205,7 @@ def _award_auto_session_for_date(
     db.flush()
 
     row.bonus_sessions = max(0, int(row.bonus_sessions or 0)) + 1
+    row.is_auto_data_user = True
     _apply_metric_deltas(row, local_session_date)
     after = _snapshot_metrics(row)
     event.metrics_after_json = after
@@ -215,7 +216,12 @@ def _award_auto_session_for_date(
     row.updated_at = _now_utc()
 
     next_day = local_session_date + timedelta(days=1)
-    row.next_auto_session_at = compute_next_auto_session_at(row, local_date=next_day)
+    from app.services.golden_vault_auto_data_service import refresh_next_auto_session_from_config
+
+    if row.auto_data_start_date and row.auto_data_frequency:
+        refresh_next_auto_session_from_config(db, row, participant)
+    else:
+        row.next_auto_session_at = compute_next_auto_session_at(row, local_date=next_day)
 
     record_audit_event(
         db,
@@ -235,7 +241,13 @@ def enable_auto_session(db: Session, row: GoldenDemoOverride, participant: Parti
     if not row.random_seed:
         apply_profile_to_override(row, generate_demo_profile())
     row.auto_session_enabled = True
-    row.next_auto_session_at = compute_initial_next_auto_session_at(row)
+    row.is_auto_data_user = True
+    from app.services.golden_vault_auto_data_service import refresh_next_auto_session_from_config
+
+    if row.auto_data_start_date and row.auto_data_frequency:
+        refresh_next_auto_session_from_config(db, row, participant)
+    else:
+        row.next_auto_session_at = compute_initial_next_auto_session_at(row)
     row.auto_session_updated_at = _now_utc()
     record_audit_event(
         db,
