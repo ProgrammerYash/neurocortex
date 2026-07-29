@@ -55,7 +55,6 @@ export default function ResearcherDashboard({ onBack, showToast }) {
     { label: 'Total Sessions', value: summaryValue('Total Sessions', summary?.totalSessions), color: T.blue, icon: '📅' },
     { label: 'Completed Sessions', value: summaryValue('Completed Sessions', summary?.totalCompletedSessions), color: T.teal, icon: '✔️' },
     { label: 'Active Participants in the Last 7 Days', value: summaryValue('Active', summary?.activeParticipants7d), color: T.green, icon: '✅' },
-    { label: 'Average Session Completion', value: summaryValue('Completion', summary?.averageSessionCompletion, formatPercent), color: T.gold, icon: '🏆' },
     { label: 'Average Reaction Time', value: summaryValue('Reaction', summary?.averageReactionTimeMs, formatReaction), color: T.purple, icon: '⚡' },
     { label: 'Average Stress', value: summaryValue('Stress', summary?.averageStress, formatScale), color: T.red, icon: '😓' },
     { label: 'Average Fatigue', value: summaryValue('Fatigue', summary?.averageFatigue, formatScale), color: T.orange, icon: '😴' },

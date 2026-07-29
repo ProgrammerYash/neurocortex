@@ -13,7 +13,7 @@ import Btn from '../ui/Btn.jsx';
 import Label from '../ui/Label.jsx';
 import SectionTitle from '../ui/SectionTitle.jsx';
 import ConsentDocument from './ConsentDocument.jsx';
-import SignaturePad from './SignaturePad.jsx';
+import TypedSignatureBlock from './TypedSignatureBlock.jsx';
 
 const GRADES = ['9th Grade','10th Grade','11th Grade','12th Grade','College Freshman','College Sophomore','College Junior','College Senior'];
 
@@ -24,12 +24,8 @@ export default function ConsentWizard({ registration = false, onSubmit, submitti
   const [account, setAccount] = useState({grade:'', ageYears:'', ageConsentCategory:'', petChoice:'fox', pin:'', pinConfirmation:'', participantPrintedName:'', guardianPrintedName:''});
   const [participantAck, setParticipantAck] = useState(false);
   const [guardianAck, setGuardianAck] = useState(false);
-  const [participantSigned, setParticipantSigned] = useState(false);
-  const [guardianSigned, setGuardianSigned] = useState(false);
-  const [participantSignaturePng, setParticipantSignaturePng] = useState(null);
-  const [guardianSignaturePng, setGuardianSignaturePng] = useState(null);
-  const participantPad = useRef(null);
-  const guardianPad = useRef(null);
+  const [participantSignatureAgreed, setParticipantSignatureAgreed] = useState(false);
+  const [guardianSignatureAgreed, setGuardianSignatureAgreed] = useState(false);
   const submitRef = useRef(false);
   const idempotencyKey = useRef(crypto.randomUUID());
   const selectedAge = account.ageYears === '' ? null : Number(account.ageYears);
@@ -57,7 +53,7 @@ export default function ConsentWizard({ registration = false, onSubmit, submitti
 
   const finalSubmit = async () => {
     if (submitRef.current || submitting) return;
-    if (!participantAck || !guardianAck || !participantSignaturePng || !guardianSignaturePng) return;
+    if (!participantAck || !guardianAck || !participantSignatureAgreed || !guardianSignatureAgreed) return;
     submitRef.current = true;
     const body = {
       ...(registration ? {
@@ -74,8 +70,8 @@ export default function ConsentWizard({ registration = false, onSubmit, submitti
       guardianPrintedName: account.guardianPrintedName.trim(),
       participantAcknowledged: participantAck,
       guardianAcknowledged: guardianAck,
-      participantSignaturePng,
-      guardianSignaturePng,
+      participantSignatureAgreed,
+      guardianSignatureAgreed,
       consentVersion: consent.consent_version,
       surveyVersion: consent.survey_version,
       templateSha256: consent.template_sha256,
@@ -83,14 +79,12 @@ export default function ConsentWizard({ registration = false, onSubmit, submitti
     };
     try {
       await onSubmit(body);
-      participantPad.current?.clear();
-      guardianPad.current?.clear();
-      setParticipantSignaturePng(null);
-      setGuardianSignaturePng(null);
       setParticipantAck(false);
       setGuardianAck(false);
+      setParticipantSignatureAgreed(false);
+      setGuardianSignatureAgreed(false);
     } catch {
-      // The parent displays the safe API error. Keep signatures in memory for retry.
+      // parent shows API error
     } finally {
       submitRef.current = false;
     }
@@ -162,12 +156,18 @@ export default function ConsentWizard({ registration = false, onSubmit, submitti
         <Card className="fade-in">
           <SectionTitle>Participant acknowledgment</SectionTitle>
           <p style={{fontSize:13, lineHeight:1.7, marginBottom:14}}>{consent.participant_acknowledgment}</p>
-          <p style={{fontSize:13, marginBottom:14}}>Signing as: <strong>{account.participantPrintedName.trim()}</strong></p>
           <label style={{display:'flex', gap:10, fontSize:13, marginBottom:16}}><input aria-label="Participant acknowledgment" type="checkbox" checked={participantAck} onChange={e=>setParticipantAck(e.target.checked)} style={{width:'auto'}} /><span>I have read and agree to the participant acknowledgment above.</span></label>
-          <SignaturePad ref={participantPad} label="Participant signature" onChange={setParticipantSigned} />
+          <TypedSignatureBlock
+            title="Typed signature"
+            displayName={account.participantPrintedName}
+            agreementLabel="I agree to use my typed name as my electronic signature."
+            agreed={participantSignatureAgreed}
+            onAgreedChange={setParticipantSignatureAgreed}
+            testId="participant-typed-signature"
+          />
           <div style={{display:'flex', gap:12, marginTop:20}}>
             <Btn onClick={()=>setStep(2)} style={{flex:1}}>← Back</Btn>
-            <Btn onClick={()=>{setParticipantSignaturePng(participantPad.current.toPNG());setStep(4);}} disabled={!participantAck || !participantSigned || !namesValid()} primary style={{flex:2}}>Guardian Review →</Btn>
+            <Btn onClick={()=>setStep(4)} disabled={!participantAck || !participantSignatureAgreed || !namesValid()} primary style={{flex:2}}>Guardian Review →</Btn>
           </div>
         </Card>
       )}
@@ -175,12 +175,18 @@ export default function ConsentWizard({ registration = false, onSubmit, submitti
         <Card className="fade-in">
           <SectionTitle>Guardian acknowledgment</SectionTitle>
           <p style={{fontSize:13, lineHeight:1.7, marginBottom:14}}>{consent.guardian_acknowledgment}</p>
-          <p style={{fontSize:13, marginBottom:14}}>Signing as parent/guardian: <strong>{account.guardianPrintedName.trim()}</strong></p>
           <label style={{display:'flex', gap:10, fontSize:13, marginBottom:16}}><input aria-label="Guardian acknowledgment" type="checkbox" checked={guardianAck} onChange={e=>setGuardianAck(e.target.checked)} style={{width:'auto'}} /><span>I have read and agree to the guardian acknowledgment above.</span></label>
-          <SignaturePad ref={guardianPad} label="Guardian signature" onChange={setGuardianSigned} />
+          <TypedSignatureBlock
+            title="Guardian typed signature"
+            displayName={account.guardianPrintedName}
+            agreementLabel="I agree to use my typed name as my electronic signature."
+            agreed={guardianSignatureAgreed}
+            onAgreedChange={setGuardianSignatureAgreed}
+            testId="guardian-typed-signature"
+          />
           <div style={{display:'flex', gap:12, marginTop:20}}>
-            <Btn onClick={()=>{setParticipantSigned(false);setParticipantSignaturePng(null);setGuardianSigned(false);setGuardianSignaturePng(null);setStep(3);}} style={{flex:1}}>← Back</Btn>
-            <Btn onClick={()=>{setGuardianSignaturePng(guardianPad.current.toPNG());setStep(5);}} disabled={!guardianAck || !guardianSigned || !namesValid()} primary style={{flex:2}}>Final Review →</Btn>
+            <Btn onClick={()=>{setParticipantSignatureAgreed(false);setStep(3);}} style={{flex:1}}>← Back</Btn>
+            <Btn onClick={()=>setStep(5)} disabled={!guardianAck || !guardianSignatureAgreed || !namesValid()} primary style={{flex:2}}>Final Review →</Btn>
           </div>
         </Card>
       )}
@@ -190,12 +196,12 @@ export default function ConsentWizard({ registration = false, onSubmit, submitti
           <div style={{fontSize:13, lineHeight:1.9}}>
             <div>Participant: <strong>{account.participantPrintedName.trim()}</strong></div>
             <div>Guardian: <strong>{account.guardianPrintedName.trim()}</strong></div>
-            <div>Participant acknowledgment and signature: <strong>Complete</strong></div>
-            <div>Guardian acknowledgment and signature: <strong>Complete</strong></div>
+            <div>Participant typed signature agreement: <strong>Complete</strong></div>
+            <div>Guardian typed signature agreement: <strong>Complete</strong></div>
           </div>
           {error && <p role="alert" style={{color:T.red, marginTop:12, fontSize:13}}>{error}</p>}
           <div style={{display:'flex', gap:12, marginTop:20}}>
-            <Btn onClick={()=>{setGuardianSigned(false);setGuardianSignaturePng(null);setStep(4);}} disabled={submitting} style={{flex:1}}>← Back</Btn>
+            <Btn onClick={()=>{setGuardianSignatureAgreed(false);setStep(4);}} disabled={submitting} style={{flex:1}}>← Back</Btn>
             <Btn onClick={finalSubmit} disabled={submitting} primary style={{flex:2}}>{submitting ? 'Submitting…' : registration ? 'Create Account and Submit Consent' : 'Submit Consent'}</Btn>
           </div>
         </Card>

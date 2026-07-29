@@ -6,10 +6,11 @@ import {
   roundTimeLimitSeconds,
 } from '../../constants/typingPassages.js';
 import { aggregateTypingResults, computeRoundMetrics } from '../../utils/typingMetrics.js';
-import Page from '../ui/Page.jsx';
+import { useParticipantTokens } from '../participant/ParticipantAppShell.jsx';
 import Card from '../ui/Card.jsx';
 import Btn from '../ui/Btn.jsx';
 import LockedScreen from '../ui/LockedScreen.jsx';
+import Page from '../ui/Page.jsx';
 
 const TOTAL_ROUNDS = 3;
 const WRONG_FLASH_MS = 180;
@@ -19,6 +20,7 @@ function isModifierShortcut(e) {
 }
 
 export default function TypingTest({ onComplete, onBack, locked }) {
+  const P = useParticipantTokens();
   const [phase, setPhase] = useState('intro');
   const [roundIndex, setRoundIndex] = useState(0);
   const [difficulty, setDifficulty] = useState('easy');
@@ -111,7 +113,12 @@ export default function TypingTest({ onComplete, onBack, locked }) {
 
   useEffect(() => {
     if (phase !== 'typing' || !currentCharRef.current || !passageRef.current) return;
-    currentCharRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    currentCharRef.current.scrollIntoView({
+      behavior: reduced ? 'auto' : 'smooth',
+      block: 'nearest',
+      inline: 'nearest',
+    });
   }, [position, phase]);
 
   const finishRound = useCallback(() => {
@@ -312,7 +319,7 @@ export default function TypingTest({ onComplete, onBack, locked }) {
             <li>Timing begins on your first character attempt, not before.</li>
             <li>Use Backspace to fix mistakes when needed.</li>
           </ul>
-          <Btn onClick={beginTest} primary style={{ width: '100%', padding: '13px' }}>
+          <Btn onClick={beginTest} primary style={{ width: '100%', padding: '13px' }} data-testid="typing-begin-test">
             Begin Typing Test
           </Btn>
         </Card>
@@ -339,20 +346,26 @@ export default function TypingTest({ onComplete, onBack, locked }) {
           <div
             ref={passageRef}
             onMouseDown={(e) => e.preventDefault()}
+            data-testid="typing-passage"
             style={{
-              background: T.surface,
-              border: `1px solid ${T.faint}`,
+              background: P.surface,
+              border: `1px solid ${P.cardBorder}`,
               borderRadius: 10,
               padding: '16px 18px',
               fontSize: 17,
               lineHeight: 1.95,
               minHeight: 120,
               maxHeight: 220,
+              overflowX: 'hidden',
               overflowY: 'auto',
+              whiteSpace: 'pre-wrap',
+              overflowWrap: 'anywhere',
+              wordBreak: 'normal',
               marginBottom: 12,
               userSelect: 'none',
               cursor: 'default',
               fontFamily: T.mono,
+              color: P.text,
             }}
           >
             {passage.split('').map((char, i) => {
@@ -395,12 +408,12 @@ export default function TypingTest({ onComplete, onBack, locked }) {
             onChange={() => {}}
             style={{
               width: '100%',
-              border: `2px solid ${T.teal}`,
+              border: `2px solid ${P.teal}`,
               borderRadius: 8,
               padding: '12px 14px',
               fontSize: 15,
-              background: T.bg,
-              color: T.text,
+              background: P.bg,
+              color: P.text,
               outline: 'none',
             }}
             placeholder={timerActive ? 'Keep typing…' : 'Click here and type the first character…'}

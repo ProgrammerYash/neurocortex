@@ -26,6 +26,7 @@ from app.models.participant_feedback_snapshot import ParticipantFeedbackSnapshot
 from app.models.participant_feedback_generation_lock import ParticipantFeedbackGenerationLock
 from app.models.golden_demo_override import GoldenDemoOverride
 from app.models.golden_auto_session_event import GoldenAutoSessionEvent
+from app.models.golden_fake_user_batch import GoldenFakeUserBatch
 
 __all__ = [
     "Participant",
@@ -56,4 +57,5 @@ __all__ = [
     "ParticipantFeedbackGenerationLock",
     "GoldenDemoOverride",
     "GoldenAutoSessionEvent",
+    "GoldenFakeUserBatch",
 ]

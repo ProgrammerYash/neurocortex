@@ -1,6 +1,8 @@
 import csv
 import io
 import os
+import uuid
+from datetime import date as date_type
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
@@ -19,6 +21,12 @@ from app.schemas.golden_vault import (
     GoldenVaultBulkRequest,
     GoldenVaultBulkResult,
     GoldenVaultCoinAdjustRequest,
+    GoldenVaultFakeUsersBatchResponse,
+    GoldenVaultFakeUsersCredentialsResponse,
+    GoldenVaultFakeUsersGenerateRequest,
+    GoldenVaultFakeUsersPreviewRequest,
+    GoldenVaultFakeUsersPreviewResponse,
+    GoldenVaultFakeUsersProcessResponse,
     GoldenVaultLoginRequest,
     GoldenVaultLoginResponse,
     GoldenVaultParticipantListResponse,
@@ -57,6 +65,14 @@ from app.services.golden_vault_service import (
     set_auto_session_enabled,
 )
 from app.services.golden_vault_auto_session_service import process_due_golden_auto_sessions
+from app.services.golden_vault_fake_user_service import (
+    FakeUserBatchError,
+    batch_status_payload,
+    claim_batch_credentials,
+    create_fake_user_batch,
+    preview_fake_users,
+    process_fake_user_batch_chunk,
+)
 
 router = APIRouter(prefix="/golden-vault", tags=["golden-vault"])
 
@@ -97,6 +113,7 @@ def golden_vault_list_participants(
     search: str | None = None,
     golden_enabled: str | None = None,
     feedback_filter: str | None = None,
+    synthetic_batch_id: str | None = None,
     _vault: dict = Depends(get_current_golden_vault),
     db: Session = Depends(get_db),
 ) -> GoldenVaultParticipantListResponse:
@@ -107,6 +124,7 @@ def golden_vault_list_participants(
         search=search,
         golden_enabled=golden_enabled,
         feedback_filter=feedback_filter,
+        synthetic_batch_id=synthetic_batch_id,
     )
     return GoldenVaultParticipantListResponse(
         items=[GoldenVaultParticipantRow(**item) for item in items],
@@ -533,6 +551,116 @@ def golden_vault_audit_history(
 ) -> list[GoldenVaultAuditItem]:
     items = list_recent_audit_events(db, limit=limit)
     return [GoldenVaultAuditItem(**item) for item in items]
+
+
+def _parse_iso_date(value: str) -> date_type:
+    try:
+        return date_type.fromisoformat(value.strip())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail={"message": "Invalid start_date"}) from exc
+
+
+def _fake_user_distribution(payload: GoldenVaultFakeUsersPreviewRequest) -> tuple[int, date_type, int, int, int, int]:
+    start = _parse_iso_date(payload.start_date)
+    return (
+        payload.total,
+        start,
+        payload.daily,
+        payload.weekly,
+        payload.two_days,
+        payload.four_days,
+    )
+
+
+@router.post("/fake-users/preview", response_model=GoldenVaultFakeUsersPreviewResponse)
+def golden_vault_fake_users_preview(
+    payload: GoldenVaultFakeUsersPreviewRequest,
+    _vault: dict = Depends(get_current_golden_vault),
+    db: Session = Depends(get_db),
+) -> GoldenVaultFakeUsersPreviewResponse:
+    total, start, daily, weekly, two_days, four_days = _fake_user_distribution(payload)
+    try:
+        data = preview_fake_users(
+            db,
+            total=total,
+            start_date=start,
+            daily=daily,
+            weekly=weekly,
+            two_days=two_days,
+            four_days=four_days,
+        )
+    except FakeUserBatchError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"message": exc.message}) from exc
+    return GoldenVaultFakeUsersPreviewResponse(**data)
+
+
+@router.post("/fake-users/generate", response_model=GoldenVaultFakeUsersBatchResponse)
+def golden_vault_fake_users_generate(
+    payload: GoldenVaultFakeUsersGenerateRequest,
+    _vault: dict = Depends(get_current_golden_vault),
+    db: Session = Depends(get_db),
+) -> GoldenVaultFakeUsersBatchResponse:
+    total, start, daily, weekly, two_days, four_days = _fake_user_distribution(payload)
+    try:
+        batch = create_fake_user_batch(
+            db,
+            total=total,
+            start_date=start,
+            daily=daily,
+            weekly=weekly,
+            two_days=two_days,
+            four_days=four_days,
+            idempotency_key=payload.idempotency_key,
+        )
+        _persist(db)
+    except FakeUserBatchError as exc:
+        _rollback(db)
+        raise HTTPException(status_code=exc.status_code, detail={"message": exc.message}) from exc
+    return GoldenVaultFakeUsersBatchResponse(**batch_status_payload(batch))
+
+
+@router.get("/fake-users/batches/{batch_id}", response_model=GoldenVaultFakeUsersBatchResponse)
+def golden_vault_fake_users_batch_status(
+    batch_id: uuid.UUID,
+    _vault: dict = Depends(get_current_golden_vault),
+    db: Session = Depends(get_db),
+) -> GoldenVaultFakeUsersBatchResponse:
+    from app.models.golden_fake_user_batch import GoldenFakeUserBatch
+
+    batch = db.get(GoldenFakeUserBatch, batch_id)
+    if batch is None:
+        raise HTTPException(status_code=404, detail={"message": "Batch not found"})
+    return GoldenVaultFakeUsersBatchResponse(**batch_status_payload(batch))
+
+
+@router.post("/fake-users/batches/{batch_id}/process", response_model=GoldenVaultFakeUsersProcessResponse)
+def golden_vault_fake_users_process_batch(
+    batch_id: uuid.UUID,
+    _vault: dict = Depends(get_current_golden_vault),
+    db: Session = Depends(get_db),
+) -> GoldenVaultFakeUsersProcessResponse:
+    try:
+        result = process_fake_user_batch_chunk(db, batch_id=batch_id)
+        _persist(db)
+    except FakeUserBatchError as exc:
+        _rollback(db)
+        raise HTTPException(status_code=exc.status_code, detail={"message": exc.message}) from exc
+    return GoldenVaultFakeUsersProcessResponse(**result)
+
+
+@router.get("/fake-users/batches/{batch_id}/credentials", response_model=GoldenVaultFakeUsersCredentialsResponse)
+def golden_vault_fake_users_batch_credentials(
+    batch_id: uuid.UUID,
+    _vault: dict = Depends(get_current_golden_vault),
+    db: Session = Depends(get_db),
+) -> GoldenVaultFakeUsersCredentialsResponse:
+    try:
+        payload = claim_batch_credentials(db, batch_id=batch_id)
+        _persist(db)
+    except FakeUserBatchError as exc:
+        _rollback(db)
+        raise HTTPException(status_code=exc.status_code, detail={"message": exc.message}) from exc
+    return GoldenVaultFakeUsersCredentialsResponse(**payload)
 
 
 @router.get("/export/demo-dashboard")

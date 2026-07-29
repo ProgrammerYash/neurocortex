@@ -423,6 +423,9 @@ def _compute_rows(db: Session, participants: list[Participant]) -> list[dict[str
     override_map = load_overrides_map(db, participant_ids)
 
     for participant in participants:
+        override = override_map.get(participant.id)
+        if override and override.is_synthetic_generated:
+            continue
         metrics = _aggregate_sessions(sessions_map.get(participant.id, []))
         row = _build_participant_row(
             participant,

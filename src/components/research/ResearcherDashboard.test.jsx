@@ -120,7 +120,8 @@ describe('ResearcherDashboard', () => {
     expect(within(table).getByText('6.4 / 10')).toBeInTheDocument();
     expect(within(table).getByText('7.3 hrs')).toBeInTheDocument();
     expect(within(table).getByText('84.7%')).toBeInTheDocument();
-    expect(within(table).getByText('50.0%')).toBeInTheDocument();
+    expect(screen.queryByText('Session Completion')).not.toBeInTheDocument();
+    expect(screen.queryByText('Average Session Completion')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'View' }));
     expect(await screen.findByText('Recent session history')).toBeInTheDocument();

@@ -7,6 +7,7 @@ import {
   normalizeParticipantTheme,
 } from '../../store/participantTheme.js';
 import { participantTokens } from '../../constants/participantTokens.js';
+import { applyParticipantThemeToDocument } from '../../utils/bootstrapParticipantTheme.js';
 import '../../styles/participant-theme.css';
 
 const ParticipantThemeContext = createContext({
@@ -46,6 +47,10 @@ export default function ParticipantAppShell({ participantId, children }) {
     setResolvedTheme(resolveParticipantTheme('system'));
     return applySystemTheme(() => setResolvedTheme(resolveParticipantTheme('system')));
   }, [theme]);
+
+  useEffect(() => {
+    applyParticipantThemeToDocument(resolvedTheme);
+  }, [resolvedTheme]);
 
   const setTheme = next => {
     const normalized = normalizeParticipantTheme(next);

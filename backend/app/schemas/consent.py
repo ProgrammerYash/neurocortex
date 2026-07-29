@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class ParticipantConsentSubmitRequest(BaseModel):
@@ -9,8 +9,10 @@ class ParticipantConsentSubmitRequest(BaseModel):
     guardian_printed_name: str = Field(..., min_length=2, max_length=200)
     participant_acknowledged: bool
     guardian_acknowledged: bool
-    participant_signature_png: str = Field(..., min_length=32, max_length=1_400_100)
-    guardian_signature_png: str = Field(..., min_length=32, max_length=1_400_100)
+    participant_signature_agreed: bool = False
+    guardian_signature_agreed: bool = False
+    participant_signature_png: str | None = Field(default=None, min_length=32, max_length=1_400_100)
+    guardian_signature_png: str | None = Field(default=None, min_length=32, max_length=1_400_100)
     consent_version: str = Field(..., min_length=1, max_length=64)
     survey_version: str = Field(..., min_length=1, max_length=64)
     template_sha256: str = Field(..., pattern="^[0-9a-f]{64}$")
@@ -19,7 +21,18 @@ class ParticipantConsentSubmitRequest(BaseModel):
     @field_validator("participant_printed_name", "guardian_printed_name")
     @classmethod
     def normalize_name(cls, value: str) -> str:
-        return " ".join(value.split())
+        cleaned = " ".join(value.split())
+        if len(cleaned) < 2:
+            raise ValueError("must not be empty")
+        return cleaned
+
+    @model_validator(mode="after")
+    def validate_typed_signatures(self) -> "ParticipantConsentSubmitRequest":
+        if self.participant_signature_png or self.guardian_signature_png:
+            raise ValueError("drawn signatures are no longer accepted")
+        if not self.participant_signature_agreed or not self.guardian_signature_agreed:
+            raise ValueError("typed signature agreement is required")
+        return self
 
 
 class ResearcherConsentEventRequest(BaseModel):

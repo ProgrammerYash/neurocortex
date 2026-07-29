@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     ForeignKey,
     LargeBinary,
@@ -68,6 +69,16 @@ class ConsentRecord(Base):
     )
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     revocation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    signature_method: Mapped[str] = mapped_column(String(32), nullable=False, default="drawn_legacy", server_default="drawn_legacy")
+    participant_signature_text: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    guardian_signature_text: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    participant_agreed: Mapped[bool | None] = mapped_column(nullable=True)
+    guardian_agreed: Mapped[bool | None] = mapped_column(nullable=True)
+    is_synthetic_demo_record: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    synthetic_batch_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
 
     participant: Mapped["Participant"] = relationship(back_populates="consent_records")
 

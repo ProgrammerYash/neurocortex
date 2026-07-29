@@ -208,11 +208,21 @@ def _build_vault_filtered_query(
     search: str | None,
     golden_enabled: str | None,
     feedback_filter: str | None,
+    synthetic_batch_id: str | None = None,
 ):
     query = _vault_participant_query(db, search=search).outerjoin(
         GoldenDemoOverride,
         GoldenDemoOverride.participant_id == Participant.id,
     )
+    if synthetic_batch_id:
+        try:
+            batch_uuid = UUID(synthetic_batch_id)
+        except ValueError:
+            batch_uuid = None
+        if batch_uuid is not None:
+            query = query.where(GoldenDemoOverride.synthetic_batch_id == batch_uuid)
+        else:
+            query = query.where(GoldenDemoOverride.synthetic_batch_id.is_(None))
     if golden_enabled == "enabled":
         query = query.where(GoldenDemoOverride.enabled.is_(True))
     elif golden_enabled == "disabled":
@@ -232,6 +242,7 @@ def list_vault_participants(
     search: str | None,
     golden_enabled: str | None,
     feedback_filter: str | None,
+    synthetic_batch_id: str | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     maybe_process_due_auto_sessions(db, batch_size=25)
     filtered = _build_vault_filtered_query(
@@ -239,12 +250,16 @@ def list_vault_participants(
         search=search,
         golden_enabled=golden_enabled,
         feedback_filter=feedback_filter,
+        synthetic_batch_id=synthetic_batch_id,
     )
     total = db.execute(select(func.count()).select_from(filtered.subquery())).scalar_one()
     participants = db.execute(
         filtered.order_by(Participant.created_at.asc()).offset(offset).limit(limit)
     ).scalars().all()
-    participants = [p for p in participants if not is_synthetic_public_id(p.public_id)]
+    if synthetic_batch_id:
+        participants = list(participants)
+    else:
+        participants = [p for p in participants if not is_synthetic_public_id(p.public_id)]
     if not participants:
         return [], int(total)
     ids = [p.id for p in participants]

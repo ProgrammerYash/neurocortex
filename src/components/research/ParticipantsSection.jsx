@@ -35,7 +35,6 @@ const COLUMNS = [
   ['averageFatigue', 'Avg Fatigue', 'average_fatigue'],
   ['averageSleepHours', 'Avg Sleep', 'average_sleep'],
   ['averageMemoryAccuracy', 'Avg Memory', 'average_memory_accuracy'],
-  ['sessionCompletion', 'Session Completion', 'session_completion'],
   ['consentRecorded', 'Consent', 'consent'],
 ];
 
@@ -76,7 +75,7 @@ function cellValue(row, key) {
   if (key === 'averageStress') return formatScale(row.averageStress);
   if (key === 'averageFatigue') return formatScale(row.averageFatigue);
   if (key === 'averageSleepHours') return formatSleep(row.averageSleepHours);
-  if (key === 'averageMemoryAccuracy' || key === 'sessionCompletion') return formatPercent(row[key]);
+  if (key === 'averageMemoryAccuracy') return formatPercent(row[key]);
   if (key === 'consentRecorded') return row.consentRecorded ? 'Recorded' : 'Missing';
   if (key === 'feedbackStatus') return row.feedbackStatus || 'Not Released';
   if (key === 'participantId') {
@@ -397,7 +396,7 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast, groqR
                 <div><strong>{row.studentName || '—'}</strong></div>
                 <div style={{ color: T.muted }}>{row.guardianName || '—'}</div>
                 <div>{row.grade} · {row.ageDisplay ?? row.ageRange}</div>
-                <div>Sessions: {row.sessions} · Completion: {formatPercent(row.sessionCompletion)}</div>
+                <div>Sessions: {row.sessions}</div>
                 <div>Last active: {row.lastActiveDisplay || (row.sessions ? row.joinedDisplay : 'Never active')}</div>
                 <div>Study Schedule: {row.studyFrequencyLabel || 'Not Selected'}</div>
                 <div>AI Feedback: {row.feedbackStatus || 'Not Released'}</div>

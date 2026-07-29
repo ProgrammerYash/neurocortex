@@ -41,6 +41,8 @@ class GoldenDemoOverride(Base):
     random_seed: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     is_auto_data_user: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    is_synthetic_generated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    synthetic_batch_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
     auto_data_start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     auto_data_end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     auto_data_frequency: Mapped[str | None] = mapped_column(String(32), nullable=True)

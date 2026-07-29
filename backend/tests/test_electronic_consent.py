@@ -57,8 +57,8 @@ def registration_payload(**overrides) -> dict:
         "guardian_printed_name": "Test Guardian",
         "participant_acknowledged": True,
         "guardian_acknowledged": True,
-        "participant_signature_png": signature_data_url(),
-        "guardian_signature_png": signature_data_url(width=480),
+        "participant_signature_agreed": True,
+        "guardian_signature_agreed": True,
         "consent_version": CONSENT_VERSION,
         "survey_version": SURVEY_VERSION,
         "template_sha256": EXPECTED_TEMPLATE_SHA256,
@@ -115,14 +115,14 @@ def test_current_consent_endpoint_matches_approved_template(client: TestClient):
 @pytest.mark.parametrize(
     ("field", "value"),
     [
-        ("participant_signature_png", None),
-        ("guardian_signature_png", None),
+        ("participant_signature_agreed", False),
+        ("guardian_signature_agreed", False),
         ("participant_acknowledged", False),
         ("guardian_acknowledged", False),
-        ("participant_signature_png", "data:image/png;base64,not-valid"),
-        ("guardian_signature_png", "data:image/jpeg;base64,AAAA"),
-        ("participant_signature_png", signature_data_url(blank=True)),
-        ("guardian_signature_png", signature_data_url(width=2049, height=16)),
+        ("participant_printed_name", " "),
+        ("guardian_printed_name", ""),
+        ("participant_signature_png", signature_data_url()),
+        ("guardian_signature_png", signature_data_url()),
     ],
 )
 def test_registration_rejects_missing_or_invalid_consent(
@@ -180,6 +180,8 @@ def test_atomic_registration_pdf_content_hashes_and_idempotency(
     assert record.consent_version == CONSENT_VERSION
     assert record.survey_version == SURVEY_VERSION
     assert record.template_sha256 == EXPECTED_TEMPLATE_SHA256
+    assert record.signature_method == "typed"
+    assert record.participant_signature_text == "Test Student"
     assert len(record.pdf_sha256) == 64
     assert original_bytes.startswith(b"%PDF")
 

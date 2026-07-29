@@ -180,7 +180,6 @@ export default function ParticipantDetailsPanel({ detail, onClose, onRefresh, sh
           <div style={{ fontSize: 13, lineHeight: 1.9 }}>
             <div>Sessions started: <strong>{detail.sessionsStarted ?? 0}</strong></div>
             <div>Fully completed sessions: <strong>{detail.sessionsCompleted ?? 0}</strong></div>
-            <div>Session completion: <strong>{formatPercent(detail.sessionCompletion)}</strong></div>
             <div>Last active: <strong>{detail.lastActiveDisplay || (detail.sessionsStarted ? detail.joinedDisplay : 'Never active')}</strong></div>
             <div>Average reaction time: <strong>{formatReaction(detail.averageReactionTimeMs)}</strong></div>
             <div>Average stress: <strong>{formatScale(detail.averageStress)}</strong></div>

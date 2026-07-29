@@ -19,6 +19,7 @@ import {
   signOutGoldenVault,
 } from '../../store/goldenVault.js';
 import AutoDataModal from './AutoDataModal.jsx';
+import FakeUsersModal from './FakeUsersModal.jsx';
 import { SessionCoinControls } from './GoldenVaultSessionControls.jsx';
 import { ROUTES } from '../../routing/routePaths.js';
 import '../../styles/golden-vault.css';
@@ -104,6 +105,8 @@ export default function GoldenVaultPage() {
   const [confirm, setConfirm] = useState(null);
   const [amountModal, setAmountModal] = useState(null);
   const [autoDataRow, setAutoDataRow] = useState(null);
+  const [fakeUsersOpen, setFakeUsersOpen] = useState(false);
+  const [syntheticBatchFilter, setSyntheticBatchFilter] = useState('');
   const loadSeq = useRef(0);
   const authed = isGoldenVaultAuthed();
   const pageIds = useMemo(() => items.map(row => row.participantId), [items]);
@@ -133,6 +136,7 @@ export default function GoldenVaultPage() {
         search,
         goldenEnabled: goldenFilter || undefined,
         feedbackFilter: feedbackFilter || undefined,
+        syntheticBatchId: syntheticBatchFilter || undefined,
         limit: 50,
         offset: 0,
       });
@@ -145,7 +149,7 @@ export default function GoldenVaultPage() {
     } finally {
       if (seq === loadSeq.current) setLoading(false);
     }
-  }, [search, goldenFilter, feedbackFilter]);
+  }, [search, goldenFilter, feedbackFilter, syntheticBatchFilter]);
 
   const loadAudit = useCallback(async () => {
     setAuditLoading(true);
@@ -297,6 +301,14 @@ export default function GoldenVaultPage() {
               <option value="revoked">Feedback Revoked</option>
             </select>
             <button type="button" className="golden-vault-btn" onClick={load} disabled={loading}>Refresh</button>
+            <button type="button" className="golden-vault-btn golden-vault-btn-primary" onClick={() => setFakeUsersOpen(true)}>
+              Generate Fake Users
+            </button>
+            {syntheticBatchFilter && (
+              <button type="button" className="golden-vault-btn" onClick={() => setSyntheticBatchFilter('')}>
+                Clear batch filter
+              </button>
+            )}
           </div>
 
           {selectedCount > 0 && (
@@ -471,6 +483,15 @@ export default function GoldenVaultPage() {
           onClose={() => setAutoDataRow(null)}
           onApplied={loadParticipants}
           busy={!!pendingKey}
+        />
+      )}
+      {fakeUsersOpen && (
+        <FakeUsersModal
+          onClose={() => setFakeUsersOpen(false)}
+          onBatchReady={batchId => {
+            setSyntheticBatchFilter(batchId);
+            loadParticipants();
+          }}
         />
       )}
     </div>

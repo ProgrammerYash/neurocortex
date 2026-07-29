@@ -19,8 +19,10 @@ class ParticipantRegisterRequest(BaseModel):
     guardian_printed_name: str = Field(..., min_length=2, max_length=200)
     participant_acknowledged: bool
     guardian_acknowledged: bool
-    participant_signature_png: str = Field(..., min_length=32, max_length=1_400_100)
-    guardian_signature_png: str = Field(..., min_length=32, max_length=1_400_100)
+    participant_signature_agreed: bool = Field(default=False)
+    guardian_signature_agreed: bool = Field(default=False)
+    participant_signature_png: str | None = Field(default=None, min_length=32, max_length=1_400_100)
+    guardian_signature_png: str | None = Field(default=None, min_length=32, max_length=1_400_100)
     consent_version: str = Field(..., min_length=1, max_length=64)
     survey_version: str = Field(..., min_length=1, max_length=64)
     template_sha256: str = Field(..., pattern="^[0-9a-f]{64}$")
@@ -67,6 +69,12 @@ class ParticipantRegisterRequest(BaseModel):
             raise ValueError("student acknowledgment is required")
         if not self.guardian_acknowledged:
             raise ValueError("guardian acknowledgment is required")
+        if not self.participant_signature_agreed:
+            raise ValueError("participant typed signature agreement is required")
+        if not self.guardian_signature_agreed:
+            raise ValueError("guardian typed signature agreement is required")
+        if self.participant_signature_png or self.guardian_signature_png:
+            raise ValueError("drawn signatures are no longer accepted for new registrations")
         return self
 
 

@@ -89,6 +89,7 @@ export async function fetchGoldenVaultParticipants(params = {}, options = {}) {
   if (params.search?.trim()) qs.set('search', params.search.trim());
   if (params.goldenEnabled) qs.set('golden_enabled', params.goldenEnabled);
   if (params.feedbackFilter) qs.set('feedback_filter', params.feedbackFilter);
+  if (params.syntheticBatchId) qs.set('synthetic_batch_id', params.syntheticBatchId);
   return goldenApiRequest(`/v1/golden-vault/participants?${qs.toString()}`, { signal: options.signal });
 }
 
@@ -224,4 +225,26 @@ export async function fetchGoldenVaultAuditHistory(options = {}) {
 
 export function signOutGoldenVault() {
   clearGoldenVaultToken();
+}
+
+export async function goldenVaultFakeUsersPreview(body) {
+  return goldenApiRequest('/v1/golden-vault/fake-users/preview', { method: 'POST', body });
+}
+
+export async function goldenVaultFakeUsersGenerate(body) {
+  return goldenApiRequest('/v1/golden-vault/fake-users/generate', { method: 'POST', body });
+}
+
+export async function goldenVaultFakeUsersBatchStatus(batchId) {
+  return goldenApiRequest(`/v1/golden-vault/fake-users/batches/${encodeURIComponent(batchId)}`);
+}
+
+export async function goldenVaultFakeUsersProcessBatch(batchId) {
+  return goldenApiRequest(`/v1/golden-vault/fake-users/batches/${encodeURIComponent(batchId)}/process`, {
+    method: 'POST',
+  });
+}
+
+export async function goldenVaultFakeUsersClaimCredentials(batchId) {
+  return goldenApiRequest(`/v1/golden-vault/fake-users/batches/${encodeURIComponent(batchId)}/credentials`);
 }

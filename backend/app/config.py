@@ -126,6 +126,14 @@ class Settings(BaseSettings):
         default=100,
         validation_alias="GOLDEN_AUTO_SESSION_BATCH_SIZE",
     )
+    golden_fake_user_batch_limit: int = Field(
+        default=500,
+        validation_alias="GOLDEN_FAKE_USER_BATCH_LIMIT",
+    )
+    golden_fake_user_batch_size: int = Field(
+        default=50,
+        validation_alias="GOLDEN_FAKE_USER_BATCH_SIZE",
+    )
     cors_allowed_origins: str = Field(
         default="",
         validation_alias="CORS_ALLOWED_ORIGINS",

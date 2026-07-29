@@ -132,3 +132,60 @@ class GoldenVaultAuditItem(BaseModel):
     event_type: str
     created_at: str
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class GoldenVaultFakeUsersPreviewRequest(BaseModel):
+    total: int = Field(ge=1)
+    start_date: str
+    daily: int = Field(ge=0, default=0)
+    weekly: int = Field(ge=0, default=0)
+    two_days: int = Field(ge=0, default=0)
+    four_days: int = Field(ge=0, default=0)
+
+
+class GoldenVaultFakeUsersPreviewResponse(BaseModel):
+    totalUsers: int
+    startDate: str
+    dailyCount: int
+    weeklyCount: int
+    twoDaysCount: int
+    fourDaysCount: int
+    estimatedAutoDataEvents: int
+    estimatedPdfCount: int
+    estimatedGenerationBatches: int
+
+
+class GoldenVaultFakeUsersGenerateRequest(GoldenVaultFakeUsersPreviewRequest):
+    idempotency_key: str | None = Field(default=None, max_length=128)
+
+
+class GoldenVaultFakeUsersBatchResponse(BaseModel):
+    batchId: str
+    status: str
+    requestedCount: int
+    processedCount: int
+    successfulCount: int
+    failedCount: int
+    startDate: str
+    dailyCount: int
+    weeklyCount: int
+    twoDaysCount: int
+    fourDaysCount: int
+    credentialsAvailable: bool = False
+    credentialsViewedAt: str | None = None
+    errors: list[str] | None = None
+
+
+class GoldenVaultFakeUsersProcessResponse(BaseModel):
+    batchId: str
+    status: str
+    processedCount: int
+    successfulCount: int
+    failedCount: int
+    credentialsAvailable: bool = False
+    errors: list[str] | None = None
+
+
+class GoldenVaultFakeUsersCredentialsResponse(BaseModel):
+    batchId: str
+    credentials: list[dict[str, str]]

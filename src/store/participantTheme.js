@@ -57,4 +57,9 @@ export function setParticipantTheme(publicId, theme) {
   const map = readMap();
   map[publicId] = normalized;
   writeMap(map);
+  try {
+    localStorage.setItem('nc3_participant_theme_last_id', publicId);
+  } catch {
+    /* ignore */
+  }
 }

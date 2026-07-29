@@ -101,12 +101,18 @@ def compute_initial_next_auto_session_at(row: GoldenDemoOverride, *, now: dateti
     window_start = local_now.replace(hour=14, minute=0, second=0, microsecond=0)
     window_end = local_now.replace(hour=20, minute=0, second=0, microsecond=0)
 
+    def _future(candidate: datetime) -> datetime:
+        if candidate > ref:
+            return candidate
+        tomorrow = local_now.date() + timedelta(days=1)
+        return compute_next_auto_session_at(row, reference=ref, local_date=tomorrow)
+
     if local_now < window_start:
-        return compute_next_auto_session_at(row, reference=ref, local_date=local_now.date())
+        return _future(compute_next_auto_session_at(row, reference=ref, local_date=local_now.date()))
     if local_now <= window_end:
         remaining = window_end - local_now
         if remaining >= MIN_REMAINING_BEFORE_TOMORROW:
-            return compute_next_auto_session_at(row, reference=ref, local_date=local_now.date())
+            return _future(compute_next_auto_session_at(row, reference=ref, local_date=local_now.date()))
         tomorrow = local_now.date() + timedelta(days=1)
         return compute_next_auto_session_at(row, reference=ref, local_date=tomorrow)
     tomorrow = local_now.date() + timedelta(days=1)

@@ -40,7 +40,7 @@ import {
   RequireResearcher,
   shouldRestoreSession,
 } from './routing/RouteGuards.jsx';
-import { MODULE_SCREEN_TO_PATH, ROUTES } from './routing/routePaths.js';
+import { MODULE_SCREEN_TO_PATH, ROUTES, isParticipantAppPath } from './routing/routePaths.js';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -130,6 +130,11 @@ export default function App() {
           const profile = mapApiParticipantToProfile(me, me.public_id);
           if (cancelled) return;
           setCurrentUser(profile);
+          try {
+            localStorage.setItem('nc3_participant_theme_last_id', profile.publicId || me.public_id);
+          } catch {
+            /* ignore */
+          }
           if (!me.must_change_pin && me.consent_required !== true && me.consent_recorded !== false) {
             await loadParticipantSessionData(profile);
           } else {
@@ -310,12 +315,20 @@ export default function App() {
   }, [completeDay, showToast]);
 
   const waitingForSession = shouldRestoreSession(location.pathname) && !sessionReady;
+  const participantSurface = isParticipantAppPath(location.pathname);
 
   return (
-    <div style={{ fontFamily: T.font, background: T.bg, minHeight: '100vh', color: T.text }}>
+    <div
+      style={{
+        fontFamily: T.font,
+        background: participantSurface ? 'var(--pt-bg, #060910)' : T.bg,
+        minHeight: '100vh',
+        color: participantSurface ? 'var(--pt-text, #e2e8f0)' : T.text,
+      }}
+    >
       <style>{css}</style>
       {waitingForSession ? (
-        <AppPageLoader label="Loading your session…" />
+        <AppPageLoader label="Loading your session…" participant={participantSurface} />
       ) : (
         <RouteFocusMain>
           <Routes>

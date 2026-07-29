@@ -17,7 +17,14 @@ from app.services.consent_content import (
     EXPECTED_TEMPLATE_SHA256,
     SURVEY_VERSION,
 )
+import base64
+
 from app.services.consent_pdf_service import ConsentPdfError, generate_consent_pdf
+from app.services.signature_style import (
+    SIGNATURE_METHOD_DRAWN_LEGACY,
+    SIGNATURE_METHOD_TYPED,
+    typed_signature_png_bytes,
+)
 
 
 def current_consent_record(
@@ -72,6 +79,55 @@ def _validate_versions(payload: dict[str, Any]) -> None:
         )
 
 
+def _resolve_signature_payload(payload: dict[str, Any]) -> tuple[str, str, str, bool, bool, str, str]:
+    """Return png data URLs, method, agreement flags, and canonical signature texts."""
+    from app.services.consent_service import ConsentError
+
+    participant_name = " ".join(str(payload["participant_printed_name"]).split())
+    guardian_name = " ".join(str(payload["guardian_printed_name"]).split())
+
+    legacy_participant_png = payload.get("participant_signature_png")
+    legacy_guardian_png = payload.get("guardian_signature_png")
+    if legacy_participant_png and legacy_guardian_png:
+        return (
+            legacy_participant_png,
+            legacy_guardian_png,
+            SIGNATURE_METHOD_DRAWN_LEGACY,
+            bool(payload.get("participant_acknowledged")),
+            bool(payload.get("guardian_acknowledged")),
+            participant_name,
+            guardian_name,
+        )
+
+    if not payload.get("participant_signature_agreed"):
+        raise ConsentError(
+            "Participant typed signature agreement is required",
+            status_code=422,
+            error_code="PARTICIPANT_SIGNATURE_DECLINED",
+        )
+    if not payload.get("guardian_signature_agreed"):
+        raise ConsentError(
+            "Guardian typed signature agreement is required",
+            status_code=422,
+            error_code="GUARDIAN_SIGNATURE_DECLINED",
+        )
+    if not participant_name or not guardian_name:
+        raise ConsentError("Printed names are required for typed signatures", status_code=422)
+
+    prefix = "data:image/png;base64,"
+    participant_png = prefix + base64.b64encode(typed_signature_png_bytes(participant_name)).decode("ascii")
+    guardian_png = prefix + base64.b64encode(typed_signature_png_bytes(guardian_name)).decode("ascii")
+    return (
+        participant_png,
+        guardian_png,
+        SIGNATURE_METHOD_TYPED,
+        True,
+        True,
+        participant_name,
+        guardian_name,
+    )
+
+
 def create_consent_record_uncommitted(
     db: Session,
     *,
@@ -106,14 +162,24 @@ def create_consent_record_uncommitted(
         )
 
     signed_at = datetime.now(UTC)
+    (
+        participant_signature_png,
+        guardian_signature_png,
+        signature_method,
+        participant_agreed,
+        guardian_agreed,
+        participant_text,
+        guardian_text,
+    ) = _resolve_signature_payload(payload)
     try:
         pdf_bytes, pdf_sha256 = generate_consent_pdf(
             participant_printed_name=payload["participant_printed_name"],
             guardian_printed_name=payload["guardian_printed_name"],
-            participant_signature_png=payload["participant_signature_png"],
-            guardian_signature_png=payload["guardian_signature_png"],
+            participant_signature_png=participant_signature_png,
+            guardian_signature_png=guardian_signature_png,
             participant_signed_at=signed_at,
             guardian_signed_at=signed_at,
+            is_synthetic_demo_record=payload.get("is_synthetic_demo_record") is True,
         )
     except ConsentPdfError as exc:
         raise ConsentError(
@@ -142,6 +208,13 @@ def create_consent_record_uncommitted(
         pdf_bytes=pdf_bytes,
         idempotency_key=idempotency_key,
         created_at=signed_at,
+        signature_method=signature_method,
+        participant_signature_text=participant_text,
+        guardian_signature_text=guardian_text,
+        participant_agreed=participant_agreed,
+        guardian_agreed=guardian_agreed,
+        is_synthetic_demo_record=payload.get("is_synthetic_demo_record") is True,
+        synthetic_batch_id=payload.get("synthetic_batch_id"),
     )
     db.add(record)
     db.flush()

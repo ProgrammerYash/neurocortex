@@ -68,6 +68,8 @@ STUDENT_SIGNATURE_FIELD = "Form 4 AIC Signature"
 GUARDIAN_SIGNATURE_FIELD = "Form 4 Sample Signature 5"
 STUDY_TIMEZONE = ZoneInfo("America/New_York")
 
+from app.services.signature_style import SYNTHETIC_PDF_BANNER, TYPED_SIGNATURE_ATTESTATION
+
 
 def pdf_signing_date(signed_at: datetime) -> str:
     """Format a UTC signing timestamp as MM/DD/YY in study local time."""
@@ -308,6 +310,34 @@ def _generate_with_pypdf_reportlab(
     return output.getvalue(), widgets[STUDENT_SIGNATURE_FIELD], widgets[GUARDIAN_SIGNATURE_FIELD]
 
 
+def _pdf_contains_synthetic_marker(pdf_bytes: bytes) -> bool:
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    text = "\n".join(page.extract_text() or "" for page in reader.pages)
+    return "SYNTHETIC DEMO RECORD" in text and "NOT A REAL CONSENT FORM" in text
+
+
+def _apply_synthetic_demo_markers(pdf_bytes: bytes) -> bytes:
+    """Stamp synthetic demo banner on generated PDF pages."""
+    overlay_buffer = io.BytesIO()
+    overlay = canvas.Canvas(overlay_buffer, pagesize=letter, pageCompression=1)
+    overlay.setFont("Helvetica-Bold", 11)
+    overlay.setFillColorRGB(0.75, 0.1, 0.1)
+    overlay.drawString(72, 760, SYNTHETIC_PDF_BANNER)
+    overlay.setFont("Helvetica", 8)
+    overlay.drawString(72, 36, SYNTHETIC_PDF_BANNER)
+    overlay.save()
+    overlay_buffer.seek(0)
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    writer = PdfWriter()
+    overlay_page = PdfReader(overlay_buffer).pages[0]
+    for page in reader.pages:
+        page.merge_page(overlay_page)
+        writer.add_page(page)
+    output = io.BytesIO()
+    writer.write(output)
+    return output.getvalue()
+
+
 def generate_consent_pdf(
     *,
     participant_printed_name: str,
@@ -316,6 +346,7 @@ def generate_consent_pdf(
     guardian_signature_png: str,
     participant_signed_at: datetime,
     guardian_signed_at: datetime,
+    is_synthetic_demo_record: bool = False,
 ) -> tuple[bytes, str]:
     participant_name = validate_printed_name(participant_printed_name, "Student printed name")
     guardian_name = validate_printed_name(guardian_printed_name, "Guardian printed name")
@@ -347,6 +378,10 @@ def generate_consent_pdf(
         student_rect=student_rect,
         guardian_rect=guardian_rect,
     )
+    if is_synthetic_demo_record:
+        final_pdf = _apply_synthetic_demo_markers(final_pdf)
+        if not _pdf_contains_synthetic_marker(final_pdf):
+            raise ConsentPdfError("Synthetic demo marker missing from generated PDF")
     return final_pdf, hashlib.sha256(final_pdf).hexdigest()
 
 
