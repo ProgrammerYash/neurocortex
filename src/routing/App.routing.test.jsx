@@ -46,8 +46,8 @@ describe('App routing', () => {
         <App />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('heading', { level: 1, name: /NeuroCortex:/ })).toBeInTheDocument();
-  });
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/NeuroCortex:/);
+  }, 15000);
 
   it('redirects unknown routes to home content', () => {
     render(

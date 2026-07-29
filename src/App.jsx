@@ -328,7 +328,7 @@ export default function App() {
     >
       <style>{css}</style>
       {waitingForSession ? (
-        <AppPageLoader label="Loading your session…" participant={participantSurface} />
+        <AppPageLoader label="Loading your session…" />
       ) : (
         <RouteFocusMain>
           <Routes>

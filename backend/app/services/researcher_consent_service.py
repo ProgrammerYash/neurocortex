@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.models.consent_record import ConsentRecord
 from app.models.participant import Participant
-from app.services.consent_pdf_service import ConsentPdfError, delivery_pdf_bytes
+from app.services.consent_pdf_service import ConsentPdfError, delivery_consent_pdf_for_record
 
 
 class ResearcherConsentError(ValueError):
@@ -173,7 +173,7 @@ def build_all_consents_zip(db: Session) -> tempfile.SpooledTemporaryFile:
         with zipfile.ZipFile(spool, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
             for record, filename in prepared:
                 try:
-                    pdf_bytes = delivery_pdf_bytes(record.pdf_bytes)
+                    pdf_bytes = delivery_consent_pdf_for_record(record)
                 except ConsentPdfError as exc:
                     raise ResearcherConsentError(str(exc), status_code=500) from exc
                 archive.writestr(filename, pdf_bytes)

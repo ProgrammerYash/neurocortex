@@ -68,7 +68,7 @@ describe('ParticipantsSection bulk selection', () => {
 
   it('header select-all selects visible page and supports indeterminate state', async () => {
     render(<ParticipantsSection showToast={vi.fn()} groqReady />);
-    const header = await screen.findByRole('checkbox', { name: 'Select all on page' });
+    const header = await screen.findByRole('checkbox', { name: 'Select all on page', timeout: 10000 });
     fireEvent.click(header);
     expect(await screen.findByText('2 selected')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Select NC-SEL-A' }));

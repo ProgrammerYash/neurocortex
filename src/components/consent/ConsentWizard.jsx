@@ -15,7 +15,7 @@ import SectionTitle from '../ui/SectionTitle.jsx';
 import ConsentDocument from './ConsentDocument.jsx';
 import TypedSignatureBlock from './TypedSignatureBlock.jsx';
 
-const GRADES = ['9th Grade','10th Grade','11th Grade','12th Grade','College Freshman','College Sophomore','College Junior','College Senior'];
+const GRADES = ['6th Grade','7th Grade','8th Grade','9th Grade','10th Grade','11th Grade','12th Grade','College Freshman','College Sophomore','College Junior','College Senior'];
 
 export default function ConsentWizard({ registration = false, onSubmit, submitting = false, error = '' }) {
   const [step, setStep] = useState(1);

@@ -588,6 +588,7 @@ def get_dashboard_participants(
     sort: str = Query(default="joined"),
     direction: str = Query(default="desc", pattern="^(asc|desc)$"),
     status: str | None = Query(default=None, alias="status"),
+    participant_type: str = Query(default="all", pattern="^(all|real|synthetic_demo)$"),
     _researcher: Researcher = Depends(get_current_researcher),
     db: Session = Depends(get_db),
 ) -> DashboardParticipantsPage:
@@ -602,6 +603,7 @@ def get_dashboard_participants(
         sort=sort,
         direction=direction,
         status_filter=status or "all_current",
+        participant_type_filter=participant_type,
     )
     return DashboardParticipantsPage(items=items, total=total, limit=limit, offset=offset)
 

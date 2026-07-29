@@ -1,3 +1,5 @@
+import { STUDY_PROJECT_TITLE } from '../constants/studyTitle.js';
+
 /**
  * Presentation content for the NeuroCortex public homepage.
  * Scientific wording matches the approved presentation except user-approved Phase 5B overrides.
@@ -6,8 +8,7 @@
 // PAGE 1 — OPENING (also PAGE 13 — CLOSING)
 export const openingSlide = {
   kicker: 'Science Fair Project',
-  title:
-    'NeuroCortex: A predictive model capable of detecting cognitive overload and burnout early using passive digital biomarkers and personalized AI models',
+  title: STUDY_PROJECT_TITLE,
   author: 'By Yash Gupta',
   school: 'Jose Marti STEM Academy',
 };

@@ -37,10 +37,8 @@ from app.utils.ids import generate_public_id
 from app.utils.security import hash_pin
 from jose import JWTError, jwt
 
-FIRST_NAMES = ("Alex", "Blake", "Casey", "Drew", "Emery", "Finley", "Gray", "Harper", "Indie", "Jordan")
-LAST_NAMES = ("Brooks", "Chen", "Diaz", "Ellis", "Frost", "Grant", "Hayes", "Ivers", "Jules", "Keene")
-GUARDIAN_LAST = ("Morgan", "Reed", "Shaw", "Vale", "Wells", "York", "Lane", "Pierce", "Quinn", "Rowe")
-GRADES = ("9th Grade", "10th Grade", "11th Grade", "12th Grade")
+from app.constants.participant_grades import PARTICIPANT_GRADES
+from app.services.fictional_name_pairs import select_pairs_deterministic
 PETS = ("fox", "owl", "cat", "dragon")
 _CREDENTIALS_AUD = "golden_fake_user_credentials"
 
@@ -269,20 +267,31 @@ def _unique_public_id(db: Session) -> str:
     raise FakeUserBatchError("Could not allocate participant id", status_code=500)
 
 
-def _profile_for_index(index: int, frequency: str) -> dict[str, Any]:
-    rng = random.Random(9000 + index)
-    first = rng.choice(FIRST_NAMES)
-    last = rng.choice(LAST_NAMES)
-    guardian = f"{rng.choice(GUARDIAN_LAST)} {last}"
-    age = rng.choice([13, 14, 15, 16, 17])
+def _profile_for_index(batch_id: uuid.UUID, index: int, frequency: str) -> dict[str, Any]:
+    pair = select_pairs_deterministic(batch_key=str(batch_id), count=1, start_offset=index)[0]
+    rng = random.Random(9000 + index + int(batch_id.int % 100_000))
+    age = rng.choice([11, 12, 13, 14, 15, 16, 17])
+    middle_school = ("6th Grade", "7th Grade", "8th Grade")
+    high_school = ("9th Grade", "10th Grade", "11th Grade", "12th Grade")
+    if age <= 11:
+        grade = "6th Grade"
+    elif age == 12:
+        grade = rng.choice(("6th Grade", "7th Grade"))
+    elif age == 13:
+        grade = rng.choice(("7th Grade", "8th Grade"))
+    elif age == 14:
+        grade = rng.choice(("8th Grade", "9th Grade"))
+    else:
+        grade = rng.choice(high_school)
     return {
-        "participant_name": f"{first} {last}",
-        "guardian_name": guardian,
+        "participant_name": pair["participant_name"],
+        "guardian_name": pair["parent_name"],
         "age": age,
-        "grade": rng.choice(GRADES),
+        "grade": grade,
         "pet": rng.choice(PETS),
         "frequency": frequency,
-        "seed": 5000 + index,
+        "seed": int(pair["source_index"]) + index,
+        "name_source_index": int(pair["source_index"]),
     }
 
 
@@ -304,7 +313,7 @@ def process_fake_user_batch_chunk(db: Session, *, batch_id: uuid.UUID) -> dict[s
     end_index = min(batch.requested_count, start_index + chunk)
     for index in range(start_index, end_index):
         frequency = plan[index]
-        profile = _profile_for_index(index, frequency)
+        profile = _profile_for_index(batch.id, index, frequency)
         pin = f"{secrets.randbelow(900000) + 100000}"[:6]
         if len(pin) < 4:
             pin = "2468"

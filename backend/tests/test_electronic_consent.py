@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from app.models.consent_record import ConsentRecord
 from app.models.participant import Participant
 from app.models.researcher import Researcher
+from app.constants.study_title import STUDY_PROJECT_TITLE
 from app.services.consent_content import (
     CONSENT_VERSION,
     EXPECTED_STATIC_VALUES,
@@ -87,7 +88,8 @@ def test_current_consent_endpoint_matches_approved_template(client: TestClient):
     body = response.json()
     assert body["template_sha256"] == EXPECTED_TEMPLATE_SHA256
     for key, value in EXPECTED_STATIC_VALUES.items():
-        assert body[key] == value
+        expected = STUDY_PROJECT_TITLE if key == "project_title" else value
+        assert body[key] == expected
     assert set(body) == {
         "consent_version",
         "survey_version",
@@ -193,7 +195,7 @@ def test_atomic_registration_pdf_content_hashes_and_idempotency(
     assert "Test Guardian" in text
     assert pdf_signing_date(record.participant_signed_at) in text
     assert pdf_signing_date(record.guardian_signed_at) in text
-    assert EXPECTED_STATIC_VALUES["project_title"] in text
+    assert STUDY_PROJECT_TITLE in text
     assert "NeuroCortex Survey/Questionnaire Appendix" not in text
     assert "Major exam in the next 3 days?" not in text
     rendered = pypdfium2.PdfDocument(original_bytes)

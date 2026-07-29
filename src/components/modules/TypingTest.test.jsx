@@ -116,14 +116,14 @@ describe('TypingTest behavior', () => {
     expect(passage.style.overflowX).toBe('hidden');
   });
 
-  it('uses light participant tokens on passage and input in light theme', async () => {
-    renderTyping('light');
+  it('always uses dark participant tokens on passage and input', async () => {
+    renderTyping('dark');
     const { passage, input } = await startTypingRound();
     const shell = passage.closest('.participant-app');
-    expect(shell?.className).toContain('participant-app--light');
-    expect(passage.style.color).toBe('rgb(15, 23, 42)');
-    expect(input.style.color).toBe('rgb(15, 23, 42)');
-    expect(passage.style.background).not.toBe('rgb(19, 25, 40)');
+    expect(shell?.className).toContain('participant-app--dark');
+    expect(shell?.className).not.toContain('participant-app--light');
+    expect(passage.style.color).toBe('rgb(226, 232, 240)');
+    expect(input.style.color).toBe('rgb(226, 232, 240)');
   });
 
   it('uses dark theme tokens in dark mode', async () => {

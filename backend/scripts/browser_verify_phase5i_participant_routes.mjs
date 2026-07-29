@@ -1,8 +1,8 @@
 /**
- * Phase 5I participant route light/dark audit at multiple widths.
+ * Phase 5I participant route dark-theme audit at multiple widths.
  *
- * Isolated typing check:
- *   node browser_verify_phase5i_participant_routes.mjs --only typing_mobile_light
+ * Isolated route audit:
+ *   node browser_verify_phase5i_participant_routes.mjs --only dark_1440_/participant/dashboard
  */
 import { chromium } from 'playwright';
 import { spawnSync } from 'node:child_process';
@@ -69,9 +69,6 @@ async function seedParticipantAuth(page, { publicId, accessToken }) {
   await page.evaluate(({ publicId, accessToken }) => {
     localStorage.setItem('nc3_token', accessToken);
     localStorage.setItem('nc3_participant_theme_last_id', publicId);
-    const map = {};
-    map[publicId] = 'light';
-    localStorage.setItem('nc3_participant_themes', JSON.stringify(map));
   }, { publicId, accessToken });
   const dashResponse = await gotoSafe(page, `${BASE}/participant/dashboard`);
   await page.waitForFunction(
@@ -161,7 +158,7 @@ async function readPageDiagnostics(page) {
   });
 }
 
-function saveFailureArtifacts(page, prefix = 'typing_mobile_light') {
+function saveFailureArtifacts(page, prefix = 'typing_mobile_dark') {
   mkdirSync(ARTIFACTS_DIR, { recursive: true });
   const pngPath = join(ARTIFACTS_DIR, `${prefix}.png`);
   const htmlPath = join(ARTIFACTS_DIR, `${prefix}.html`);
@@ -223,26 +220,6 @@ async function loginParticipant(page, publicId) {
   await waitForParticipantAppReady(page);
 }
 
-async function applyLightTheme(page, publicId) {
-  await page.evaluate((pid) => {
-    localStorage.setItem('nc3_participant_theme_last_id', pid);
-    const map = JSON.parse(localStorage.getItem('nc3_participant_themes') || '{}');
-    map[pid] = 'light';
-    localStorage.setItem('nc3_participant_themes', JSON.stringify(map));
-    const vars = {
-      '--pt-bg': '#e8eef5',
-      '--pt-text': '#0f172a',
-      '--pt-muted': '#475569',
-    };
-    Object.entries(vars).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
-    document.body.style.backgroundColor = vars['--pt-bg'];
-    document.body.style.color = vars['--pt-text'];
-  }, publicId);
-  await page.reload({ waitUntil: 'domcontentloaded' });
-  await waitForParticipantAppReady(page);
-  await page.waitForSelector('.participant-app--light', { timeout: 20000 });
-}
-
 async function ensureTypingIntroOrActive(page) {
   const begin = page.getByTestId('typing-begin-test');
   if (await begin.isVisible().catch(() => false)) {
@@ -272,7 +249,7 @@ async function ensureTypingIntroOrActive(page) {
   throw new Error('typing_intro_and_passage_not_found');
 }
 
-async function runTypingMobileLightCheck(browser) {
+async function runTypingMobileDarkCheck(browser) {
   const { publicId, accessToken } = bootstrapParticipant();
   const diagnostics = { consoleErrors: [], pageErrors: [], failedRequests: [] };
   const context = await browser.newContext({ viewport: { width: 390, height: 900 } });
@@ -282,7 +259,6 @@ async function runTypingMobileLightCheck(browser) {
   let navigationStatus = null;
   try {
     await seedParticipantAuth(page, { publicId, accessToken });
-    await applyLightTheme(page, publicId);
 
     const navResponse = await gotoSafe(page, `${BASE}${TYPING_ROUTE}`);
     navigationStatus = navResponse?.status?.() ?? null;
@@ -325,7 +301,7 @@ async function runTypingMobileLightCheck(browser) {
         clientWidth: passageEl?.clientWidth ?? 0,
         horizontalOverflow: doc.scrollWidth <= doc.clientWidth + 2,
         focused: document.activeElement === inputEl,
-        lightShell: !!document.querySelector('.participant-app--light'),
+        darkShell: !!document.querySelector('.participant-app--dark'),
       };
     });
 
@@ -335,11 +311,11 @@ async function runTypingMobileLightCheck(browser) {
       && beforeMetrics.whiteSpace === 'pre-wrap'
       && beforeMetrics.scrollWidth <= beforeMetrics.clientWidth + 2
       && afterMetrics.focused
-      && afterMetrics.lightShell
+      && afterMetrics.darkShell
       && afterMetrics.horizontalOverflow;
 
     return {
-      name: 'typing_mobile_light',
+      name: 'typing_mobile_dark',
       ok,
       detail: {
         publicId,
@@ -352,7 +328,7 @@ async function runTypingMobileLightCheck(browser) {
   } catch (error) {
     await logTypingFailure(page, diagnostics, navigationStatus, error);
     return {
-      name: 'typing_mobile_light',
+      name: 'typing_mobile_dark',
       ok: false,
       detail: {
         error: String(error),
@@ -366,45 +342,153 @@ async function runTypingMobileLightCheck(browser) {
   }
 }
 
-async function auditRoute(page, route, theme, width) {
-  await page.setViewportSize({ width, height: 900 });
-  await gotoSafe(page, `${BASE}${route}`);
-  if (page.url().includes('/participant/sign-in')) {
-    return { route, theme, width, overflow: false, darkPanel: true, lightShell: false, bg: 'redirected_sign_in' };
-  }
-  await page.evaluate((t) => {
-    const id = localStorage.getItem('nc3_participant_theme_last_id');
-    const map = JSON.parse(localStorage.getItem('nc3_participant_themes') || '{}');
-    if (id) map[id] = t;
-    localStorage.setItem('nc3_participant_themes', JSON.stringify(map));
-    const vars =
-      t === 'light'
-        ? { '--pt-bg': '#e8eef5', '--pt-text': '#0f172a', '--pt-muted': '#475569' }
-        : { '--pt-bg': '#060910', '--pt-text': '#e2e8f0', '--pt-muted': '#a0aec0' };
-    Object.entries(vars).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
-    if (document.body) {
-      document.body.style.backgroundColor = vars['--pt-bg'];
-      document.body.style.color = vars['--pt-text'];
+async function collectHorizontalOverflowDiagnostics(page) {
+  return page.evaluate(() => {
+    const docEl = document.documentElement;
+    const bodyEl = document.body;
+    const viewportWidth = window.innerWidth;
+    const docMetrics = {
+      scrollWidth: docEl.scrollWidth,
+      clientWidth: docEl.clientWidth,
+      bodyScrollWidth: bodyEl?.scrollWidth ?? 0,
+      bodyClientWidth: bodyEl?.clientWidth ?? 0,
+      viewportWidth,
+      pageOverflowPx: Math.max(0, docEl.scrollWidth - docEl.clientWidth),
+    };
+
+    const offenders = [];
+    const seen = new Set();
+    const elements = document.querySelectorAll('body *');
+
+    function describe(el) {
+      if (!el || el.nodeType !== 1 || seen.has(el)) return;
+      seen.add(el);
+      const style = getComputedStyle(el);
+      if (style.visibility === 'hidden' || style.display === 'none' || style.opacity === '0') return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width < 1 || rect.height < 1) return;
+      const overflowRight = rect.right - viewportWidth;
+      if (overflowRight <= 1) return;
+
+      const overflowX = style.overflowX;
+      const isScrollContainer = overflowX === 'auto' || overflowX === 'scroll';
+      const position = style.position;
+      const isFixedOrSticky = position === 'fixed' || position === 'sticky';
+      const hasTransform = style.transform && style.transform !== 'none';
+
+      let selector = el.tagName.toLowerCase();
+      if (el.id) selector += `#${el.id}`;
+      if (el.className && typeof el.className === 'string') {
+        const cls = el.className.trim().split(/\s+/).slice(0, 3).join('.');
+        if (cls) selector += `.${cls}`;
+      }
+
+      offenders.push({
+        selector,
+        width: Math.round(rect.width),
+        left: Math.round(rect.left),
+        right: Math.round(rect.right),
+        overflowRightPx: Math.round(overflowRight),
+        position,
+        overflowX,
+        isFixedOrSticky,
+        hasTransform,
+        isScrollContainer,
+      });
     }
-  }, theme);
-  await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.waitForLoadState('domcontentloaded');
-  await page.waitForSelector('.participant-app', { timeout: 20000 }).catch(() => null);
-  await page.waitForTimeout(500);
-  return page.evaluate(({ theme, width, routePath }) => {
+
+    elements.forEach(describe);
+    offenders.sort((a, b) => b.overflowRightPx - a.overflowRightPx);
+
+    return { docMetrics, offenders: offenders.slice(0, 40) };
+  });
+}
+
+function measureRouteAudit(page, routePath) {
+  return page.evaluate(({ routePath: path }) => {
     const doc = document.documentElement;
-    const overflow = doc.scrollWidth <= doc.clientWidth + 2;
+    const noHorizontalOverflow = doc.scrollWidth <= doc.clientWidth + 2;
     const shell = document.querySelector('.participant-app');
     const bgEl = shell || document.body;
     const bg = getComputedStyle(bgEl).backgroundColor;
     const rgb = bg.match(/\d+/g)?.map(Number) || [0, 0, 0];
     const lum = (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255;
-    const lightShell = !!document.querySelector('.participant-app--light');
     const darkShell = !!document.querySelector('.participant-app--dark');
-    const darkPanel =
-      theme === 'light' && (lum < 0.35 || (!lightShell && darkShell));
-    return { route: routePath, theme, width, overflow, darkPanel, lightShell, bg };
-  }, { theme, width, routePath: route });
+    // Dark-only app: fail when shell is missing or the main surface reads as a light panel.
+    const darkPanel = !darkShell || lum > 0.45;
+    return {
+      route: path,
+      noHorizontalOverflow,
+      overflow: noHorizontalOverflow,
+      darkPanel,
+      darkShell,
+      bg,
+      luminance: lum,
+    };
+  }, { routePath });
+}
+
+async function auditRoute(page, route, width) {
+  await page.setViewportSize({ width, height: 900 });
+  await gotoSafe(page, `${BASE}${route}`);
+  if (page.url().includes('/participant/sign-in')) {
+    return {
+      route,
+      width,
+      overflow: false,
+      noHorizontalOverflow: false,
+      darkShell: true,
+      darkPanel: false,
+      bg: 'redirected_sign_in',
+    };
+  }
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('domcontentloaded');
+  await page.waitForSelector('.participant-app', { timeout: 20000 }).catch(() => null);
+  await page.waitForTimeout(500);
+  const measured = await measureRouteAudit(page, route);
+  return { ...measured, width };
+}
+
+async function runIsolatedRouteAudit(browser, onlyKey) {
+  const match = /^dark_(\d+)_(.+)$/.exec(onlyKey);
+  if (!match) {
+    throw new Error(`invalid isolated audit key: ${onlyKey}`);
+  }
+  const width = Number.parseInt(match[1], 10);
+  const route = match[2];
+  if (!WIDTHS.includes(width) || !ROUTES.includes(route)) {
+    throw new Error(`unknown route or width in --only ${onlyKey}`);
+  }
+
+  const { publicId, accessToken } = bootstrapParticipant();
+  const context = await browser.newContext({ viewport: { width, height: 900 } });
+  const page = await context.newPage();
+  await seedParticipantAuth(page, { publicId, accessToken });
+
+  const result = await auditRoute(page, route, width);
+  const overflowDiagnostics = await collectHorizontalOverflowDiagnostics(page);
+
+  mkdirSync(ARTIFACTS_DIR, { recursive: true });
+  const artifactBase = onlyKey.replace(/[^\w.-]+/g, '_');
+  await page.screenshot({ path: join(ARTIFACTS_DIR, `${artifactBase}.png`), fullPage: true });
+  writeFileSync(
+    join(ARTIFACTS_DIR, `${artifactBase}.json`),
+    JSON.stringify({ result, overflowDiagnostics }, null, 2),
+    'utf8',
+  );
+
+  await context.close();
+
+  const ok = result.noHorizontalOverflow && !result.darkPanel;
+  return {
+    name: onlyKey,
+    ok,
+    detail: {
+      ...result,
+      overflowDiagnostics,
+    },
+  };
 }
 
 async function runFullMatrix(browser) {
@@ -417,20 +501,18 @@ async function runFullMatrix(browser) {
   }, publicId);
 
   const checks = [];
-  for (const theme of ['light', 'dark']) {
-    for (const width of WIDTHS) {
-      for (const route of ROUTES) {
-        const result = await auditRoute(page, route, theme, width);
-        checks.push({
-          name: `${theme}_${width}_${route}`,
-          ok: result.overflow && !result.darkPanel,
-          detail: result,
-        });
-      }
+  for (const width of WIDTHS) {
+    for (const route of ROUTES) {
+      const result = await auditRoute(page, route, width);
+      checks.push({
+        name: `dark_${width}_${route}`,
+        ok: result.noHorizontalOverflow && !result.darkPanel,
+        detail: result,
+      });
     }
   }
 
-  const typingCheck = await runTypingMobileLightCheck(browser);
+  const typingCheck = await runTypingMobileDarkCheck(browser);
   checks.push(typingCheck);
   await context.close();
   return checks;
@@ -441,8 +523,10 @@ async function main() {
   const browser = await chromium.launch({ headless: true });
 
   let checks;
-  if (only === 'typing_mobile_light') {
-    checks = [await runTypingMobileLightCheck(browser)];
+  if (only === 'typing_mobile_dark' || only === 'typing_mobile_light') {
+    checks = [await runTypingMobileDarkCheck(browser)];
+  } else if (only && /^dark_\d+_/.test(only)) {
+    checks = [await runIsolatedRouteAudit(browser, only)];
   } else if (only) {
     console.error(JSON.stringify({ ok: false, error: `unknown --only mode: ${only}` }));
     await browser.close();

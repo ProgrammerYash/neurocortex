@@ -396,8 +396,6 @@ def _sort_rows(rows: list[dict[str, Any]], sort: str, direction: str) -> list[di
 
 
 def _compute_rows(db: Session, participants: list[Participant]) -> list[dict[str, Any]]:
-    participant_ids = [participant.id for participant in participants if not is_synthetic_public_id(participant.public_id)]
-    participants = [participant for participant in participants if participant.id in participant_ids]
     if not participants:
         return []
 
@@ -424,8 +422,7 @@ def _compute_rows(db: Session, participants: list[Participant]) -> list[dict[str
 
     for participant in participants:
         override = override_map.get(participant.id)
-        if override and override.is_synthetic_generated:
-            continue
+        is_synthetic_demo = bool(override and override.is_synthetic_generated)
         metrics = _aggregate_sessions(sessions_map.get(participant.id, []))
         row = _build_participant_row(
             participant,
@@ -433,6 +430,7 @@ def _compute_rows(db: Session, participants: list[Participant]) -> list[dict[str
             withdrawal_status=withdrawal_map.get(participant.id),
             metrics=metrics,
         )
+        row["participantType"] = "synthetic_demo" if is_synthetic_demo else "real"
         row["feedbackStatus"] = feedback_map.get(participant.id, RESEARCHER_STATUS_NOT_RELEASED)
         override = override_map.get(participant.id)
         display = resolve_participant_display_metrics(
@@ -557,6 +555,7 @@ def list_dashboard_participants(
     sort: str,
     direction: str,
     status_filter: str | None = None,
+    participant_type_filter: str = "all",
 ) -> tuple[list[dict[str, Any]], int]:
     if sort not in SORT_FIELDS:
         sort = "joined"
@@ -565,6 +564,10 @@ def list_dashboard_participants(
 
     participants = db.execute(_base_participant_query(db, search)).scalars().all()
     rows = [_strip_internal(row) for row in _sort_rows(_compute_rows(db, participants), sort, direction)]
+    if participant_type_filter == "real":
+        rows = [row for row in rows if row.get("participantType") == "real"]
+    elif participant_type_filter == "synthetic_demo":
+        rows = [row for row in rows if row.get("participantType") == "synthetic_demo"]
     if status_filter:
         rows = [row for row in rows if matches_status_filter(row["status"], status_filter)]
     else:
@@ -578,7 +581,7 @@ def get_dashboard_participant_detail(db: Session, public_id: str) -> dict[str, A
     participant = db.execute(
         apply_participant_filter(select(Participant).where(Participant.public_id == public_id))
     ).scalar_one_or_none()
-    if participant is None or is_synthetic_public_id(participant.public_id):
+    if participant is None:
         return None
 
     rows = _compute_rows(db, [participant])

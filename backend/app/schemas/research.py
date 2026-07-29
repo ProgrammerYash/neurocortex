@@ -69,6 +69,7 @@ class DashboardParticipantRow(BaseModel):
     bonusSessions: int | None = None
     realCompletedSessions: int | None = None
     displayedCompletedSessions: int | None = None
+    participantType: str = "real"
 
 
 class DashboardParticipantsPage(BaseModel):

@@ -1,17 +1,10 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import {
-  applySystemTheme,
-  getParticipantTheme,
-  resolveParticipantTheme,
-  setParticipantTheme,
-  normalizeParticipantTheme,
-} from '../../store/participantTheme.js';
+import { createContext, useContext, useEffect, useMemo } from 'react';
 import { participantTokens } from '../../constants/participantTokens.js';
-import { applyParticipantThemeToDocument } from '../../utils/bootstrapParticipantTheme.js';
+import { applyAppThemeToDocument } from '../../utils/bootstrapParticipantTheme.js';
 import '../../styles/participant-theme.css';
 
 const ParticipantThemeContext = createContext({
-  theme: 'system',
+  theme: 'dark',
   resolvedTheme: 'dark',
   setTheme: () => {},
 });
@@ -23,52 +16,26 @@ export function useParticipantTheme() {
 }
 
 export function useParticipantTokens() {
-  const { resolvedTheme } = useContext(ParticipantThemeContext);
-  return useMemo(() => participantTokens(resolvedTheme), [resolvedTheme]);
+  return useMemo(() => participantTokens(), []);
 }
 
-export default function ParticipantAppShell({ participantId, children }) {
-  const [theme, setThemeState] = useState(() => getParticipantTheme(participantId));
-  const [resolvedTheme, setResolvedTheme] = useState(() =>
-    resolveParticipantTheme(getParticipantTheme(participantId)),
-  );
-
+export default function ParticipantAppShell({ children }) {
   useEffect(() => {
-    const pref = getParticipantTheme(participantId);
-    setThemeState(pref);
-    setResolvedTheme(resolveParticipantTheme(pref));
-  }, [participantId]);
-
-  useEffect(() => {
-    if (theme !== 'system') {
-      setResolvedTheme(theme);
-      return undefined;
-    }
-    setResolvedTheme(resolveParticipantTheme('system'));
-    return applySystemTheme(() => setResolvedTheme(resolveParticipantTheme('system')));
-  }, [theme]);
-
-  useEffect(() => {
-    applyParticipantThemeToDocument(resolvedTheme);
-  }, [resolvedTheme]);
-
-  const setTheme = next => {
-    const normalized = normalizeParticipantTheme(next);
-    setParticipantTheme(participantId, normalized);
-    setThemeState(normalized);
-  };
+    applyAppThemeToDocument();
+  }, []);
 
   const value = useMemo(
-    () => ({ theme, resolvedTheme, setTheme }),
-    [theme, resolvedTheme],
+    () => ({
+      theme: 'dark',
+      resolvedTheme: 'dark',
+      setTheme: () => {},
+    }),
+    [],
   );
-
-  const modeClass = resolvedTheme === 'light' ? 'participant-app--light' : 'participant-app--dark';
-  const systemClass = theme === 'system' ? 'participant-app--system' : '';
 
   return (
     <ParticipantThemeContext.Provider value={value}>
-      <div className={`participant-app ${modeClass} ${systemClass}`.trim()}>
+      <div className="participant-app participant-app--dark">
         {children}
       </div>
     </ParticipantThemeContext.Provider>

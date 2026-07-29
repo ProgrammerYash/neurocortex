@@ -137,6 +137,26 @@ describe('ResearcherDashboard', () => {
     expect(screen.queryByText('Consent Forms')).not.toBeInTheDocument();
   });
 
+  it('shows participant type filter, synthetic badge, and API param', async () => {
+    fetchDashboardParticipants.mockResolvedValue({
+      items: [{ ...participantRow, participantId: 'NC-SYN-1', participantType: 'synthetic_demo' }],
+      total: 1,
+      limit: 20,
+      offset: 0,
+    });
+    render(<ResearcherDashboard onBack={() => {}} />);
+    expect(await screen.findByLabelText('Participant type filter')).toBeInTheDocument();
+    expect(screen.getByText('Includes synthetic demo participants.')).toBeInTheDocument();
+    expect(await screen.findByText('Synthetic Demo')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Participant type filter'), { target: { value: 'synthetic_demo' } });
+    await waitFor(() => {
+      expect(fetchDashboardParticipants).toHaveBeenCalledWith(
+        expect.objectContaining({ participantType: 'synthetic_demo' }),
+      );
+    });
+  });
+
   it('shows empty and retry states', async () => {
     fetchDashboardParticipants.mockResolvedValueOnce({ items: [], total: 0, limit: 20, offset: 0 });
     const { unmount } = render(<ParticipantsSection />);

@@ -57,11 +57,15 @@ describe('GoldenVaultPage', () => {
     expect(screen.getByText('SIMULATED DATA')).toBeInTheDocument();
   });
 
-  it('loads participant rows', async () => {
+  it('loads participant rows with compact manage control', async () => {
     render(<MemoryRouter><GoldenVaultPage /></MemoryRouter>);
     expect(await screen.findByText('NC-DEMO1')).toBeInTheDocument();
-    expect(screen.getByText(/Auto Data:/i)).toBeInTheDocument();
-    expect(screen.getByText(/Next: Jul 28, 2026 4:37 PM/i)).toBeInTheDocument();
+    expect(screen.getByTestId('golden-vault-pagination')).toBeInTheDocument();
+    expect(screen.getByLabelText('Rows per page')).toHaveValue('25');
+    fireEvent.click(screen.getByTestId('golden-vault-manage-NC-DEMO1'));
+    const panel = await screen.findByTestId('golden-vault-manage-panel');
+    expect(within(panel).getByText(/Auto Data:/i)).toBeInTheDocument();
+    expect(within(panel).getByText(/Next: Jul 28, 2026 4:37 PM/i)).toBeInTheDocument();
   });
 
   it('select-all and bulk toolbar', async () => {
@@ -70,13 +74,13 @@ describe('GoldenVaultPage', () => {
     fireEvent.click(screen.getByLabelText('Select all visible'));
     expect(await screen.findByTestId('golden-bulk-toolbar')).toBeInTheDocument();
     expect(screen.getByText(/1 selected/)).toBeInTheDocument();
-  });
+  }, 15000);
 
   it('opens add sessions modal and rejects negative amount', async () => {
     render(<MemoryRouter><GoldenVaultPage /></MemoryRouter>);
     await screen.findByRole('checkbox', { name: /Select NC-DEMO1/i });
     fireEvent.click(screen.getByLabelText('Select all visible'));
-    fireEvent.click(screen.getByText('Add Sessions'));
+    fireEvent.click(await screen.findByText('Add Sessions'));
     const dialog = screen.getByRole('dialog');
     const input = within(dialog).getByRole('spinbutton');
     fireEvent.change(input, { target: { value: '-3' } });

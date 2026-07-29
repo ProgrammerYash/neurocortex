@@ -66,9 +66,16 @@ REQUIRED_FIELDS = frozenset(
 
 STUDENT_SIGNATURE_FIELD = "Form 4 AIC Signature"
 GUARDIAN_SIGNATURE_FIELD = "Form 4 Sample Signature 5"
+PROJECT_TITLE_FIELD = "Form 4 IC Title of Project"
 STUDY_TIMEZONE = ZoneInfo("America/New_York")
 
-from app.services.signature_style import SYNTHETIC_PDF_BANNER, TYPED_SIGNATURE_ATTESTATION
+from app.constants.study_title import STUDY_PROJECT_TITLE
+from app.services.signature_style import (
+    SYNTHETIC_PDF_BANNER,
+    TYPED_SIGNATURE_ATTESTATION,
+    draw_typed_signature_on_canvas,
+    register_signature_pdf_font,
+)
 
 
 def pdf_signing_date(signed_at: datetime) -> str:
@@ -244,12 +251,21 @@ def _generate_with_pypdf_reportlab(
     *,
     participant_name: str,
     guardian_name: str,
-    student_png: bytes,
-    guardian_png: bytes,
+    student_png: bytes | None,
+    guardian_png: bytes | None,
     participant_signed_at: datetime,
     guardian_signed_at: datetime,
+    participant_signature_text: str | None = None,
+    guardian_signature_text: str | None = None,
 ) -> tuple[bytes, list[float], list[float]]:
     """Portable fallback for Python versions not supported by PyMuPDF."""
+    register_signature_pdf_font()
+    use_typed_font = bool(participant_signature_text and guardian_signature_text)
+    if use_typed_font:
+        if student_png or guardian_png:
+            raise ConsentPdfError("Typed signatures cannot be combined with PNG signature images")
+    elif not student_png or not guardian_png:
+        raise ConsentPdfError("Signature images are required for drawn signatures")
     reader = PdfReader(str(TEMPLATE_PATH))
     fields = reader.get_fields() or {}
     if len(fields) != 17 or set(fields) != REQUIRED_FIELDS:
@@ -266,6 +282,7 @@ def _generate_with_pypdf_reportlab(
 
     values = {
         **{field_name: str(fields[field_name].get("/V") or "") for field_name in REQUIRED_FIELDS},
+        PROJECT_TITLE_FIELD: STUDY_PROJECT_TITLE,
         "Form 4 Research Participant Printed Name": participant_name,
         "Form 4 AIC or MA Date Reviewed and Signed": pdf_signing_date(participant_signed_at),
         "Form 4 Parent Guardian Printed Name": guardian_name,
@@ -287,6 +304,8 @@ def _generate_with_pypdf_reportlab(
         (STUDENT_SIGNATURE_FIELD, student_png),
         (GUARDIAN_SIGNATURE_FIELD, guardian_png),
     ):
+        if use_typed_font:
+            continue
         x, y, width, height = _reportlab_image_box(widgets[field_name], image_bytes)
         overlay_canvas.drawImage(
             ImageReader(io.BytesIO(image_bytes)),
@@ -296,6 +315,17 @@ def _generate_with_pypdf_reportlab(
             height=height,
             preserveAspectRatio=True,
             mask="auto",
+        )
+    if use_typed_font:
+        draw_typed_signature_on_canvas(
+            overlay_canvas,
+            widgets[STUDENT_SIGNATURE_FIELD],
+            participant_signature_text or participant_name,
+        )
+        draw_typed_signature_on_canvas(
+            overlay_canvas,
+            widgets[GUARDIAN_SIGNATURE_FIELD],
+            guardian_signature_text or guardian_name,
         )
     overlay_canvas.save()
     overlay_buffer.seek(0)
@@ -342,16 +372,29 @@ def generate_consent_pdf(
     *,
     participant_printed_name: str,
     guardian_printed_name: str,
-    participant_signature_png: str,
-    guardian_signature_png: str,
+    participant_signature_png: str | None = None,
+    guardian_signature_png: str | None = None,
+    participant_signature_text: str | None = None,
+    guardian_signature_text: str | None = None,
     participant_signed_at: datetime,
     guardian_signed_at: datetime,
     is_synthetic_demo_record: bool = False,
 ) -> tuple[bytes, str]:
     participant_name = validate_printed_name(participant_printed_name, "Student printed name")
     guardian_name = validate_printed_name(guardian_printed_name, "Guardian printed name")
-    student_png = validate_signature_png(participant_signature_png, "Student signature")
-    guardian_png = validate_signature_png(guardian_signature_png, "Guardian signature")
+    typed_mode = participant_signature_text is not None or guardian_signature_text is not None
+    if typed_mode:
+        p_sig = validate_printed_name(participant_signature_text or participant_name, "Student signature")
+        g_sig = validate_printed_name(guardian_signature_text or guardian_name, "Guardian signature")
+        student_png = None
+        guardian_png = None
+    else:
+        if not participant_signature_png or not guardian_signature_png:
+            raise ConsentPdfError("Signature PNG data is required")
+        p_sig = None
+        g_sig = None
+        student_png = validate_signature_png(participant_signature_png, "Student signature")
+        guardian_png = validate_signature_png(guardian_signature_png, "Guardian signature")
     current_consent_content()
     template_sha256()
 
@@ -363,6 +406,8 @@ def generate_consent_pdf(
             guardian_png=guardian_png,
             participant_signed_at=participant_signed_at,
             guardian_signed_at=guardian_signed_at,
+            participant_signature_text=p_sig,
+            guardian_signature_text=g_sig,
         )
     except ConsentPdfError:
         raise
@@ -410,7 +455,7 @@ def _validate_generated_pdf(
             participant_date,
             guardian_date,
             EXPECTED_STATIC_VALUES["student_researcher"],
-            "NeuroCortex",
+            STUDY_PROJECT_TITLE,
         ):
             if expected not in text:
                 raise ConsentPdfError("Completed consent PDF failed content validation")
@@ -421,8 +466,14 @@ def _validate_generated_pdf(
             content.count(f"/{str(name).lstrip('/')}".encode())
             for name in xobjects
         )
-        if not xobjects or image_draws < 2:
-            raise ConsentPdfError("Completed consent PDF is missing visible signatures")
+        fonts = reader.pages[0].get("/Resources", {}).get("/Font", {}) or {}
+        has_signature_font = any(
+            "DancingScript" in str(font.get_object().get("/BaseFont", ""))
+            for font in fonts.values()
+            if hasattr(font, "get_object")
+        )
+        if not has_signature_font and (not xobjects or image_draws < 2):
+            raise ConsentPdfError("Completed consent PDF is missing visible signatures or signature font")
 
         if fitz is not None:
             rendered = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -499,3 +550,23 @@ def delivery_pdf_bytes(stored_pdf_bytes: bytes) -> bytes:
     if len(delivery_reader.pages) != 1:
         raise ConsentPdfError("One-page consent delivery PDF is invalid")
     return delivery
+
+
+def delivery_consent_pdf_for_record(record) -> bytes:
+    """Delivery PDF: corrected typed-signature render for typed records; unchanged bytes for legacy drawn."""
+    from app.services.signature_style import SIGNATURE_METHOD_TYPED
+
+    if getattr(record, "signature_method", None) == SIGNATURE_METHOD_TYPED:
+        participant_text = record.participant_signature_text or record.participant_printed_name
+        guardian_text = record.guardian_signature_text or record.guardian_printed_name
+        corrected, _ = generate_consent_pdf(
+            participant_printed_name=record.participant_printed_name,
+            guardian_printed_name=record.guardian_printed_name,
+            participant_signature_text=participant_text,
+            guardian_signature_text=guardian_text,
+            participant_signed_at=record.participant_signed_at,
+            guardian_signed_at=record.guardian_signed_at,
+            is_synthetic_demo_record=bool(record.is_synthetic_demo_record),
+        )
+        return delivery_pdf_bytes(corrected)
+    return delivery_pdf_bytes(record.pdf_bytes)

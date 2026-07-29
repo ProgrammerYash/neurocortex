@@ -9,6 +9,7 @@ import {
 import ParticipantAccountManagement, { AccountActionHistory } from './ParticipantAccountManagement.jsx';
 import ParticipantMessaging from './ParticipantMessaging.jsx';
 import ParticipantConsentSection from './ParticipantConsentSection.jsx';
+import SyntheticDemoBadge from './SyntheticDemoBadge.jsx';
 
 function dash(value) {
   return value === null || value === undefined || Number.isNaN(value) ? '—' : value;
@@ -157,7 +158,10 @@ export default function ParticipantDetailsPanel({ detail, onClose, onRefresh, sh
         }}>
           <div>
             <div style={{ fontSize: 11, color: T.muted, textTransform: 'uppercase', letterSpacing: 1 }}>Participant details</div>
-            <div style={{ fontFamily: T.mono, color: T.teal, fontSize: 14, marginTop: 4 }}>{detail.participantId}</div>
+            <div style={{ fontFamily: T.mono, color: T.teal, fontSize: 14, marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {detail.participantId}
+              {detail.participantType === 'synthetic_demo' ? <SyntheticDemoBadge /> : null}
+            </div>
           </div>
           <Btn onClick={onClose}>Close</Btn>
         </div>

@@ -172,15 +172,20 @@ def create_consent_record_uncommitted(
         guardian_text,
     ) = _resolve_signature_payload(payload)
     try:
-        pdf_bytes, pdf_sha256 = generate_consent_pdf(
-            participant_printed_name=payload["participant_printed_name"],
-            guardian_printed_name=payload["guardian_printed_name"],
-            participant_signature_png=participant_signature_png,
-            guardian_signature_png=guardian_signature_png,
-            participant_signed_at=signed_at,
-            guardian_signed_at=signed_at,
-            is_synthetic_demo_record=payload.get("is_synthetic_demo_record") is True,
-        )
+        pdf_kwargs: dict[str, Any] = {
+            "participant_printed_name": payload["participant_printed_name"],
+            "guardian_printed_name": payload["guardian_printed_name"],
+            "participant_signed_at": signed_at,
+            "guardian_signed_at": signed_at,
+            "is_synthetic_demo_record": payload.get("is_synthetic_demo_record") is True,
+        }
+        if signature_method == SIGNATURE_METHOD_TYPED:
+            pdf_kwargs["participant_signature_text"] = participant_text
+            pdf_kwargs["guardian_signature_text"] = guardian_text
+        else:
+            pdf_kwargs["participant_signature_png"] = participant_signature_png
+            pdf_kwargs["guardian_signature_png"] = guardian_signature_png
+        pdf_bytes, pdf_sha256 = generate_consent_pdf(**pdf_kwargs)
     except ConsentPdfError as exc:
         raise ConsentError(
             str(exc),

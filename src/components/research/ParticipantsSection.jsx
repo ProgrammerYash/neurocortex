@@ -48,6 +48,14 @@ export const STATUS_FILTERS = [
   ['removed', 'Removed'],
 ];
 
+export const PARTICIPANT_TYPE_FILTERS = [
+  ['all', 'All'],
+  ['real', 'Real'],
+  ['synthetic_demo', 'Synthetic Demo'],
+];
+
+import SyntheticDemoBadge from './SyntheticDemoBadge.jsx';
+
 export function emptyStateMessage(statusFilter, search) {
   if (search.trim()) return 'No participants match your search.';
   switch (statusFilter) {
@@ -97,6 +105,7 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast, groqR
   const [offset, setOffset] = useState(0);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all_current');
+  const [participantTypeFilter, setParticipantTypeFilter] = useState('all');
   const [sort, setSort] = useState('joined');
   const [direction, setDirection] = useState('desc');
   const [loading, setLoading] = useState(true);
@@ -132,12 +141,20 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast, groqR
     setSelectedIds(new Set());
     setSelectAllMatching(false);
     setExcludedIds(new Set());
-  }, [search, statusFilter, sort, direction]);
+  }, [search, statusFilter, participantTypeFilter, sort, direction]);
 
   const load = () => {
     setLoading(true);
     setError('');
-    return fetchDashboardParticipants({ limit, offset, search, sort, direction, status: statusFilter })
+    return fetchDashboardParticipants({
+      limit,
+      offset,
+      search,
+      sort,
+      direction,
+      status: statusFilter,
+      participantType: participantTypeFilter,
+    })
       .then(data => {
         setItems(Array.isArray(data.items) ? data.items : []);
         setTotal(Number(data.total) || 0);
@@ -149,7 +166,7 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast, groqR
   useEffect(() => {
     const timer = setTimeout(load, search ? 250 : 0);
     return () => clearTimeout(timer);
-  }, [offset, search, sort, direction, statusFilter]);
+  }, [offset, search, sort, direction, statusFilter, participantTypeFilter]);
 
   const pageIds = useMemo(() => items.map(row => row.participantId), [items]);
 
@@ -174,8 +191,8 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast, groqR
 
   const selectionMode = selectAllMatching ? 'all_matching' : 'explicit';
   const selectionFilters = useMemo(
-    () => ({ search, sort, direction, status: statusFilter }),
-    [search, sort, direction, statusFilter],
+    () => ({ search, sort, direction, status: statusFilter, participantType: participantTypeFilter }),
+    [search, sort, direction, statusFilter, participantTypeFilter],
   );
 
   const clearSelection = () => {
@@ -281,7 +298,7 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast, groqR
   const emptyMessage = emptyStateMessage(statusFilter, search);
 
   return (
-    <Card className="fade-in">
+    <Card className="fade-in" data-testid="participants-section">
       <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start', flexWrap: 'wrap' }}>
         <div>
           <SectionTitle>Participants</SectionTitle>
@@ -320,6 +337,26 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast, groqR
             <option key={value} value={value}>{label}</option>
           ))}
         </select>
+      </label>
+
+      <label style={{ display: 'block', fontSize: 12, color: T.muted, marginBottom: 12 }}>
+        Participant type
+        <select
+          aria-label="Participant type filter"
+          value={participantTypeFilter}
+          onChange={event => {
+            setParticipantTypeFilter(event.target.value);
+            setOffset(0);
+          }}
+          style={{ display: 'block', width: '100%', marginTop: 6 }}
+        >
+          {PARTICIPANT_TYPE_FILTERS.map(([value, label]) => (
+            <option key={value} value={value}>{label}</option>
+          ))}
+        </select>
+        <span style={{ display: 'block', marginTop: 6, fontSize: 11 }}>
+          Includes synthetic demo participants.
+        </span>
       </label>
 
       {selectedCount > 0 && (
@@ -389,6 +426,7 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast, groqR
                     onChange={event => toggleRow(row.participantId, event)}
                   />
                   <span style={{ fontFamily: T.mono, color: T.teal, fontSize: 12 }}>{row.participantId}</span>
+                  {row.participantType === 'synthetic_demo' ? <SyntheticDemoBadge /> : null}
                 </label>
                 <span style={{ color: statusColor(row.status), fontSize: 11 }}>{row.status}</span>
               </div>
@@ -462,7 +500,12 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast, groqR
                       }}
                       title={key === 'studentName' || key === 'guardianName' ? row[key] || '—' : undefined}
                     >
-                      {cellValue(row, key)}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: '100%' }}>
+                        {cellValue(row, key)}
+                        {key === 'participantId' && row.participantType === 'synthetic_demo' ? (
+                          <SyntheticDemoBadge />
+                        ) : null}
+                      </span>
                     </td>
                   ))}
                   <td style={{ padding: '8px 6px' }}>

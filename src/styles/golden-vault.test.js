@@ -11,4 +11,11 @@ describe('golden-vault.css mobile layout', () => {
     expect(css).toMatch(/\.golden-vault-root[\s\S]*overflow-x:\s*hidden/);
     expect(css).toMatch(/\.golden-vault-table-wrap[\s\S]*overflow-x:\s*auto/);
   });
+
+  it('defines compact table row classes', () => {
+    const css = readFileSync(cssPath, 'utf8');
+    expect(css).toContain('.golden-vault-table-row-compact');
+    expect(css).toContain('.golden-vault-table-compact');
+    expect(css).toContain('.golden-vault-manage-drawer');
+  });
 });

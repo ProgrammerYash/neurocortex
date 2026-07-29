@@ -85,6 +85,78 @@ function AmountModal({ title, onSubmit, onClose, busy, min = 0 }) {
   );
 }
 
+function ManageParticipantPanel({
+  row,
+  onClose,
+  pendingKey,
+  runSingle,
+  setConfirm,
+  setAutoDataRow,
+  mergeParticipantRow,
+  loadParticipants,
+}) {
+  if (!row) return null;
+  const disabled = !!pendingKey;
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Manage ${row.participantId}`}
+      className="golden-vault-manage-drawer"
+      data-testid="golden-vault-manage-panel"
+    >
+      <div className="golden-vault-manage-drawer__panel golden-vault-card">
+        <div className="golden-vault-manage-drawer__header">
+          <div>
+            <p style={{ margin: 0, fontSize: 11, color: '#a89050' }}>Manage participant</p>
+            <h3 style={{ margin: '4px 0 0', color: '#d4af37', fontSize: 16 }}>{row.participantId}</h3>
+            <p style={{ margin: '4px 0 0', fontSize: 12, color: '#b8b0a0' }}>{row.displayName || '—'}</p>
+          </div>
+          <button type="button" className="golden-vault-btn" onClick={onClose} disabled={disabled}>Close</button>
+        </div>
+        <div style={{ fontSize: 12, lineHeight: 1.6, color: '#b8b0a0', marginBottom: 14 }}>
+          <div><strong>Auto Data:</strong> {row.autoSessionEnabled ? 'On' : 'Off'}</div>
+          {row.autoSessionEnabled && row.nextAutoSessionDisplay ? (
+            <div>Next: {row.nextAutoSessionDisplay}</div>
+          ) : null}
+          {row.lastAutoSessionDisplay ? <div>Last run: {row.lastAutoSessionDisplay}</div> : null}
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          <button type="button" className="golden-vault-btn" disabled={disabled} onClick={() => setAutoDataRow(row)}>Auto Data</button>
+          <button type="button" className="golden-vault-btn" disabled={disabled} onClick={() => runSingle(`as-${row.participantId}`, async () => {
+            const res = await goldenVaultPatchAutoSession(row.participantId, !row.autoSessionEnabled);
+            mergeParticipantRow(row.participantId, {
+              autoSessionEnabled: res.autoSessionEnabled,
+              nextAutoSessionAt: res.nextAutoSessionAt,
+              nextAutoSessionDisplay: res.nextAutoSessionAt ? row.nextAutoSessionDisplay : null,
+              bonusSessions: res.bonusSessions,
+              displayedCompletedSessions: res.displayedCompletedSessions,
+            });
+            await loadParticipants();
+          })}>{row.autoSessionEnabled ? 'Pause Auto Data' : 'Resume Auto Data'}</button>
+          <button type="button" className="golden-vault-btn" disabled={disabled || !row.autoSessionEnabled} onClick={() => runSingle(`rs-${row.participantId}`, async () => {
+            await goldenVaultRescheduleAutoSession(row.participantId);
+            await loadParticipants();
+          })}>Reschedule</button>
+          <button type="button" className="golden-vault-btn" disabled={disabled || !row.autoSessionEnabled} onClick={() => runSingle(`rn-${row.participantId}`, async () => {
+            await goldenVaultRunAutoSessionNow(row.participantId);
+            await loadParticipants();
+          })}>Run Now</button>
+          {!row.enabled ? (
+            <button type="button" className="golden-vault-btn" disabled={disabled} onClick={() => runSingle(`en-${row.participantId}`, () => goldenVaultPatchParticipant(row.participantId, { enabled: true }))}>Enable</button>
+          ) : (
+            <button type="button" className="golden-vault-btn" disabled={disabled} onClick={() => setConfirm({ title: 'Disable override?', message: `Disable demo override for ${row.participantId}?`, onConfirm: () => { setConfirm(null); runSingle(`dis-${row.participantId}`, () => goldenVaultPatchParticipant(row.participantId, { enabled: false })); } })}>Disable</button>
+          )}
+          <button type="button" className="golden-vault-btn" disabled={disabled} onClick={() => runSingle(`reg-${row.participantId}`, () => goldenVaultRegenerateMetrics(row.participantId))}>Regen Metrics</button>
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <SessionCoinControls row={row} disabled={disabled} onUpdated={loadParticipants} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function GoldenVaultPage() {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
@@ -107,6 +179,9 @@ export default function GoldenVaultPage() {
   const [autoDataRow, setAutoDataRow] = useState(null);
   const [fakeUsersOpen, setFakeUsersOpen] = useState(false);
   const [syntheticBatchFilter, setSyntheticBatchFilter] = useState('');
+  const [pageSize, setPageSize] = useState(25);
+  const [offset, setOffset] = useState(0);
+  const [manageRow, setManageRow] = useState(null);
   const loadSeq = useRef(0);
   const authed = isGoldenVaultAuthed();
   const pageIds = useMemo(() => items.map(row => row.participantId), [items]);
@@ -123,6 +198,16 @@ export default function GoldenVaultPage() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
+  useEffect(() => {
+    setOffset(0);
+  }, [search, goldenFilter, feedbackFilter, syntheticBatchFilter, pageSize]);
+
+  useEffect(() => {
+    if (!manageRow) return;
+    const stillVisible = items.some(row => row.participantId === manageRow.participantId);
+    if (!stillVisible) setManageRow(null);
+  }, [items, manageRow]);
+
   const mergeParticipantRow = useCallback((publicId, patch) => {
     setItems(prev => prev.map(row => (row.participantId === publicId ? { ...row, ...patch } : row)));
   }, []);
@@ -137,8 +222,8 @@ export default function GoldenVaultPage() {
         goldenEnabled: goldenFilter || undefined,
         feedbackFilter: feedbackFilter || undefined,
         syntheticBatchId: syntheticBatchFilter || undefined,
-        limit: 50,
-        offset: 0,
+        limit: pageSize,
+        offset,
       });
       if (seq !== loadSeq.current) return;
       setItems(Array.isArray(data.items) ? data.items : []);
@@ -149,7 +234,7 @@ export default function GoldenVaultPage() {
     } finally {
       if (seq === loadSeq.current) setLoading(false);
     }
-  }, [search, goldenFilter, feedbackFilter, syntheticBatchFilter]);
+  }, [search, goldenFilter, feedbackFilter, syntheticBatchFilter, pageSize, offset]);
 
   const loadAudit = useCallback(async () => {
     setAuditLoading(true);
@@ -344,7 +429,7 @@ export default function GoldenVaultPage() {
           )}
 
           <div className="golden-vault-table-wrap">
-            <table className="golden-vault-table">
+            <table className="golden-vault-table golden-vault-table-compact">
               <thead>
                 <tr>
                   <th>
@@ -359,8 +444,8 @@ export default function GoldenVaultPage() {
                   <th>Participant ID</th>
                   <th>Name</th>
                   <th>Golden</th>
-                  <th>Auto Data</th>
-                  <th>Real Sessions</th>
+                  <th>Auto</th>
+                  <th>Real</th>
                   <th>Bonus</th>
                   <th>Displayed</th>
                   <th>Coins</th>
@@ -372,8 +457,9 @@ export default function GoldenVaultPage() {
               <tbody>
                 {items.map(row => {
                   const checked = selectAllMatching ? !excluded.has(row.participantId) : selected.has(row.participantId);
+                  const autoSummary = row.autoSessionEnabled ? 'On' : 'Off';
                   return (
-                    <tr key={row.participantId}>
+                    <tr key={row.participantId} className="golden-vault-table-row-compact" data-testid={`golden-vault-row-${row.participantId}`}>
                       <td>
                         <input
                           type="checkbox"
@@ -385,21 +471,7 @@ export default function GoldenVaultPage() {
                       <td>{row.participantId}</td>
                       <td>{row.displayName || '—'}</td>
                       <td>{row.enabled ? 'Yes' : 'No'}</td>
-                      <td style={{ minWidth: 160 }}>
-                        <div style={{ fontSize: 11, lineHeight: 1.5 }}>
-                          <strong>Auto Data:</strong> {row.autoSessionEnabled ? 'On' : 'Off'}
-                          <br />
-                          {row.autoSessionEnabled
-                            ? (row.nextAutoSessionDisplay ? `Next: ${row.nextAutoSessionDisplay}` : 'Scheduling…')
-                            : 'Automatic sessions disabled'}
-                          {row.lastAutoSessionDisplay && (
-                            <>
-                              <br />
-                              <span>Last run: {row.lastAutoSessionDisplay}</span>
-                            </>
-                          )}
-                        </div>
-                      </td>
+                      <td>{autoSummary}</td>
                       <td>{row.realCompletedSessions}</td>
                       <td>{row.bonusSessions}</td>
                       <td>{row.displayedCompletedSessions}</td>
@@ -407,41 +479,47 @@ export default function GoldenVaultPage() {
                       <td>{row.feedbackLevel || '—'}</td>
                       <td>{row.updatedAt ? new Date(row.updatedAt).toLocaleString() : '—'}</td>
                       <td>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, maxWidth: 280 }}>
-                          <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => setAutoDataRow(row)}>Auto Data</button>
-                          <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => runSingle(`as-${row.participantId}`, async () => {
-                            const res = await goldenVaultPatchAutoSession(row.participantId, !row.autoSessionEnabled);
-                            mergeParticipantRow(row.participantId, {
-                              autoSessionEnabled: res.autoSessionEnabled,
-                              nextAutoSessionAt: res.nextAutoSessionAt,
-                              nextAutoSessionDisplay: res.nextAutoSessionAt ? row.nextAutoSessionDisplay : null,
-                              bonusSessions: res.bonusSessions,
-                              displayedCompletedSessions: res.displayedCompletedSessions,
-                            });
-                            await loadParticipants();
-                          })}>{row.autoSessionEnabled ? 'Pause Auto Data' : 'Resume Auto Data'}</button>
-                          <button type="button" className="golden-vault-btn" disabled={!!pendingKey || !row.autoSessionEnabled} onClick={() => runSingle(`rs-${row.participantId}`, async () => {
-                            await goldenVaultRescheduleAutoSession(row.participantId);
-                            await loadParticipants();
-                          })}>Reschedule</button>
-                          <button type="button" className="golden-vault-btn" disabled={!!pendingKey || !row.autoSessionEnabled} onClick={() => runSingle(`rn-${row.participantId}`, async () => {
-                            await goldenVaultRunAutoSessionNow(row.participantId);
-                            await loadParticipants();
-                          })}>Run Now</button>
-                          {!row.enabled ? (
-                            <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => runSingle(`en-${row.participantId}`, () => goldenVaultPatchParticipant(row.participantId, { enabled: true }))}>Enable</button>
-                          ) : (
-                            <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => setConfirm({ title: 'Disable override?', message: `Disable demo override for ${row.participantId}?`, onConfirm: () => { setConfirm(null); runSingle(`dis-${row.participantId}`, () => goldenVaultPatchParticipant(row.participantId, { enabled: false })); } })}>Disable</button>
-                          )}
-                          <SessionCoinControls row={row} disabled={!!pendingKey} onUpdated={loadParticipants} />
-                          <button type="button" className="golden-vault-btn" disabled={!!pendingKey} onClick={() => runSingle(`reg-${row.participantId}`, () => goldenVaultRegenerateMetrics(row.participantId))}>Regen Metrics</button>
-                        </div>
+                        <button
+                          type="button"
+                          className="golden-vault-btn golden-vault-btn-primary"
+                          data-testid={`golden-vault-manage-${row.participantId}`}
+                          disabled={!!pendingKey}
+                          aria-expanded={manageRow?.participantId === row.participantId}
+                          onClick={() => setManageRow(current => (
+                            current?.participantId === row.participantId ? null : row
+                          ))}
+                        >
+                          Manage
+                        </button>
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+          </div>
+
+          <div className="golden-vault-pagination" data-testid="golden-vault-pagination">
+            <label style={{ fontSize: 12, color: '#b8b0a0' }}>
+              Rows per page
+              <select
+                aria-label="Rows per page"
+                value={pageSize}
+                onChange={e => setPageSize(Number(e.target.value))}
+                style={{ marginLeft: 8, padding: 6, borderRadius: 6, background: '#0f0f11', color: '#fff', border: '1px solid rgba(212,175,55,0.35)' }}
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </label>
+            <span style={{ fontSize: 12, color: '#b8b0a0' }}>
+              {total ? `${offset + 1}–${Math.min(offset + pageSize, total)} of ${total}` : '0 participants'}
+            </span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" className="golden-vault-btn" disabled={offset === 0 || loading} onClick={() => setOffset(Math.max(0, offset - pageSize))}>Previous</button>
+              <button type="button" className="golden-vault-btn" disabled={offset + pageSize >= total || loading} onClick={() => setOffset(offset + pageSize)}>Next</button>
+            </div>
           </div>
         </div>
 
@@ -459,6 +537,18 @@ export default function GoldenVaultPage() {
         </section>
       </div>
 
+      {manageRow && (
+        <ManageParticipantPanel
+          row={items.find(r => r.participantId === manageRow.participantId) || manageRow}
+          onClose={() => setManageRow(null)}
+          pendingKey={pendingKey}
+          runSingle={runSingle}
+          setConfirm={setConfirm}
+          setAutoDataRow={setAutoDataRow}
+          mergeParticipantRow={mergeParticipantRow}
+          loadParticipants={loadParticipants}
+        />
+      )}
       {confirm && (
         <ConfirmDialog
           title={confirm.title}

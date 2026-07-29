@@ -10,7 +10,8 @@ from app.database import get_db
 from app.deps import get_current_researcher
 from app.models.researcher import Researcher
 from app.schemas.consent import ResearcherConsentPage
-from app.services.consent_pdf_service import ConsentPdfError, delivery_pdf_bytes
+from app.services.consent_pdf_service import ConsentPdfError, delivery_consent_pdf_for_record
+from app.services.audit_service import record_audit_event
 from app.services.researcher_consent_service import (
     ResearcherConsentError,
     build_all_consents_zip,
@@ -83,7 +84,16 @@ def view_consent_pdf(
     try:
         record = get_consent(db, consent_id)
         filename = safe_participant_filename(record.participant.public_id)
-        pdf_bytes = delivery_pdf_bytes(record.pdf_bytes)
+        pdf_bytes = delivery_consent_pdf_for_record(record)
+        if record.signature_method == "typed":
+            record_audit_event(
+                db,
+                actor_type="researcher",
+                event_type="consent_typed_delivery_pdf_generated",
+                participant_id=record.participant_id,
+                document_id=record.id,
+                metadata={"consent_id": str(record.id)},
+            )
     except ResearcherConsentError as exc:
         raise _http_error(exc) from exc
     except ConsentPdfError as exc:
@@ -107,7 +117,16 @@ def download_consent_pdf(
     try:
         record = get_consent(db, consent_id)
         filename = safe_participant_filename(record.participant.public_id)
-        pdf_bytes = delivery_pdf_bytes(record.pdf_bytes)
+        pdf_bytes = delivery_consent_pdf_for_record(record)
+        if record.signature_method == "typed":
+            record_audit_event(
+                db,
+                actor_type="researcher",
+                event_type="consent_typed_delivery_pdf_generated",
+                participant_id=record.participant_id,
+                document_id=record.id,
+                metadata={"consent_id": str(record.id)},
+            )
     except ResearcherConsentError as exc:
         raise _http_error(exc) from exc
     except ConsentPdfError as exc:

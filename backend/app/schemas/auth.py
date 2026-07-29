@@ -2,6 +2,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.constants.participant_grades import PARTICIPANT_GRADES
 from app.constants.participant_age import validate_participant_age
 
 VALID_PET_CHOICES = frozenset({"fox", "owl", "cat", "dragon"})
@@ -29,7 +30,6 @@ class ParticipantRegisterRequest(BaseModel):
     idempotency_key: UUID
 
     @field_validator(
-        "grade",
         "pet_choice",
         "participant_printed_name",
         "guardian_printed_name",
@@ -39,6 +39,14 @@ class ParticipantRegisterRequest(BaseModel):
         cleaned = value.strip()
         if not cleaned:
             raise ValueError("must not be empty")
+        return cleaned
+
+    @field_validator("grade")
+    @classmethod
+    def validate_grade(cls, value: str) -> str:
+        cleaned = value.strip()
+        if cleaned not in PARTICIPANT_GRADES:
+            raise ValueError(f"grade must be one of: {', '.join(PARTICIPANT_GRADES)}")
         return cleaned
 
     @field_validator("age")

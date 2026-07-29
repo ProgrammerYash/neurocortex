@@ -5,6 +5,7 @@ import PublicHome from './PublicHome.jsx';
 import RegisterScreen from '../auth/RegisterScreen.jsx';
 import ResearcherSignInScreen from '../auth/ResearcherSignInScreen.jsx';
 import { hypothesis, sectionNav, workInProgressLabel, allRequiredVerbatimStrings } from '../../content/presentationContent.js';
+import { STUDY_PROJECT_TITLE } from '../../constants/studyTitle.js';
 import { ROUTES } from '../../routing/routePaths.js';
 
 const purposeLabels = [
@@ -38,6 +39,11 @@ describe('PublicHome presentation content', () => {
       });
       expect(matches.length, `Missing: ${text.slice(0, 60)}…`).toBeGreaterThan(0);
     });
+  });
+
+  it('renders the canonical study project title on the hero', () => {
+    renderAt('/', <PublicHome />);
+    expect(screen.getAllByText(STUDY_PROJECT_TITLE).length).toBeGreaterThanOrEqual(1);
   });
 
   it('repeats closing title-slide credits near the bottom', () => {

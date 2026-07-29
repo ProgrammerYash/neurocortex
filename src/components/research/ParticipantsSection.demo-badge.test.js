@@ -12,10 +12,11 @@ const dashboard = readFileSync(
   'utf8',
 );
 
-describe('Phase 5G hidden demo badges', () => {
-  it('researcher participant table does not render gold Demo badge markup', () => {
-    expect(participantsSection).not.toMatch(/>\s*Demo\s*</);
-    expect(participantsSection).not.toContain('Golden Vault demo override active');
+describe('Phase 5J synthetic demo visibility', () => {
+  it('researcher participant table renders Synthetic Demo badge markup', () => {
+    expect(participantsSection).toContain('Synthetic Demo');
+    expect(participantsSection).toContain('participantType: participantTypeFilter');
+    expect(participantsSection).toContain('Includes synthetic demo participants.');
   });
 
   it('participant dashboard does not render Demo account badge', () => {

@@ -63,7 +63,7 @@ export default function ResearcherDashboard({ onBack, showToast }) {
   ];
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '1rem 1rem 3rem' }}>
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '1rem 1rem 3rem' }} data-testid="researcher-dashboard">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '1rem 0 1.5rem', flexWrap: 'wrap' }}>
         <Btn onClick={onBack} style={{ padding: '8px 14px', fontSize: 13 }}>← Sign Out</Btn>
         <h1 style={{ fontWeight: 700, fontSize: 20, margin: 0 }}>Research Dashboard</h1>

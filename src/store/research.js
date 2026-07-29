@@ -44,6 +44,7 @@ export async function fetchDashboardParticipants({
   sort = 'joined',
   direction = 'desc',
   status = 'all_current',
+  participantType = 'all',
 } = {}) {
   const params = new URLSearchParams({
     limit: String(limit),
@@ -51,6 +52,7 @@ export async function fetchDashboardParticipants({
     sort,
     direction,
     status,
+    participant_type: participantType,
   });
   if (search.trim()) params.set('search', search.trim());
   return apiRequest(`/v1/research/dashboard/participants?${params.toString()}`);

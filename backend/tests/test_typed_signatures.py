@@ -54,14 +54,11 @@ def test_new_registration_rejects_drawn_png(client, db: Session):
 
 
 def test_synthetic_pdf_contains_banner():
-    prefix = "data:image/png;base64,"
-    name_png = prefix + base64.b64encode(typed_signature_png_bytes("Demo Student")).decode("ascii")
-    guardian_png = prefix + base64.b64encode(typed_signature_png_bytes("Demo Guardian")).decode("ascii")
     pdf_bytes, _ = generate_consent_pdf(
         participant_printed_name="Demo Student",
         guardian_printed_name="Demo Guardian",
-        participant_signature_png=name_png,
-        guardian_signature_png=guardian_png,
+        participant_signature_text="Demo Student",
+        guardian_signature_text="Demo Guardian",
         participant_signed_at=datetime.now(UTC),
         guardian_signed_at=datetime.now(UTC),
         is_synthetic_demo_record=True,
@@ -70,14 +67,11 @@ def test_synthetic_pdf_contains_banner():
 
 
 def test_non_synthetic_pdf_does_not_add_banner():
-    prefix = "data:image/png;base64,"
-    name_png = prefix + base64.b64encode(typed_signature_png_bytes("Real Student")).decode("ascii")
-    guardian_png = prefix + base64.b64encode(typed_signature_png_bytes("Real Guardian")).decode("ascii")
     pdf_bytes, sha = generate_consent_pdf(
         participant_printed_name="Real Student",
         guardian_printed_name="Real Guardian",
-        participant_signature_png=name_png,
-        guardian_signature_png=guardian_png,
+        participant_signature_text="Real Student",
+        guardian_signature_text="Real Guardian",
         participant_signed_at=datetime(2024, 1, 2, tzinfo=UTC),
         guardian_signed_at=datetime(2024, 1, 2, tzinfo=UTC),
         is_synthetic_demo_record=False,
@@ -86,8 +80,8 @@ def test_non_synthetic_pdf_does_not_add_banner():
     pdf_again, sha_again = generate_consent_pdf(
         participant_printed_name="Real Student",
         guardian_printed_name="Real Guardian",
-        participant_signature_png=name_png,
-        guardian_signature_png=guardian_png,
+        participant_signature_text="Real Student",
+        guardian_signature_text="Real Guardian",
         participant_signed_at=datetime(2024, 1, 2, tzinfo=UTC),
         guardian_signed_at=datetime(2024, 1, 2, tzinfo=UTC),
         is_synthetic_demo_record=False,

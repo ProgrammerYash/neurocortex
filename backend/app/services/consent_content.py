@@ -8,6 +8,8 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
+from app.constants.study_title import STUDY_PROJECT_TITLE
+
 CONSENT_VERSION = "neurocortex-consent-v1"
 SURVEY_VERSION = "daily-survey-v1"
 EXPECTED_TEMPLATE_SHA256 = "5c20af2c21faf734f8dd394219f28815e70e2d3c8423b7d9b8a5d288c0a30faa"
@@ -164,6 +166,7 @@ def current_consent_content() -> dict[str, str]:
         "survey_version": SURVEY_VERSION,
         "template_sha256": EXPECTED_TEMPLATE_SHA256,
         **extracted,
+        "project_title": STUDY_PROJECT_TITLE,
         "voluntary_participation": VOLUNTARY_PARTICIPATION,
         "may_stop": MAY_STOP,
         "may_skip_questions": MAY_SKIP_QUESTIONS,

@@ -211,7 +211,7 @@ def test_synthetic_batch_filter_lists_only_batch_members(client: TestClient, db:
     assert all(row.is_synthetic_generated for row in overrides)
 
 
-def test_fake_users_hidden_from_researcher_dashboard(client: TestClient, db: Session, vault_env, researcher: Researcher):
+def test_fake_users_visible_on_researcher_dashboard(client: TestClient, db: Session, vault_env, researcher: Researcher):
     body = {
         "total": 1,
         "start_date": "2026-01-03",
@@ -228,7 +228,10 @@ def test_fake_users_hidden_from_researcher_dashboard(client: TestClient, db: Ses
     ).json()["credentials"]
     public_id = creds[0]["publicId"]
     dash = client.get("/v1/research/dashboard/participants", headers=researcher_headers(researcher))
-    assert all(item["participantId"] != public_id for item in dash.json()["items"])
+    ids = [item["participantId"] for item in dash.json()["items"]]
+    assert public_id in ids
+    match = next(item for item in dash.json()["items"] if item["participantId"] == public_id)
+    assert match.get("participantType") == "synthetic_demo"
 
 
 def test_preview_schedule_distribution_service(db: Session):

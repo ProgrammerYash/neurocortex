@@ -4,16 +4,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import ParticipantSettings from './ParticipantSettings.jsx';
 import { updateParticipantStudyFrequency } from '../../store/preferences.js';
 
-const setTheme = vi.fn();
-
-vi.mock('./ParticipantAppShell.jsx', async importOriginal => {
-  const actual = await importOriginal();
-  return {
-    ...actual,
-    useParticipantTheme: () => ({ theme: 'system', resolvedTheme: 'dark', setTheme }),
-  };
-});
-
 vi.mock('../../store/preferences.js', () => ({
   updateParticipantStudyFrequency: vi.fn(),
 }));
@@ -21,19 +11,19 @@ vi.mock('../../store/preferences.js', () => ({
 describe('ParticipantSettings', () => {
   afterEach(() => cleanup());
 
-  it('uses System/Light/Dark order and single Save button', () => {
+  it('does not render theme selector and uses single Save button', () => {
     render(
       <MemoryRouter>
         <ParticipantSettings user={{ studyFrequency: 'daily' }} showToast={vi.fn()} />
       </MemoryRouter>,
     );
-    const labels = screen.getAllByRole('button', { name: 'System' });
-    expect(labels.length).toBeGreaterThan(0);
+    expect(screen.queryByText('Appearance')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Light' })).not.toBeInTheDocument();
     expect(screen.getByTestId('participant-settings-save')).toHaveTextContent('Save');
-    expect(screen.queryByRole('button', { name: /Save Schedule/i })).not.toBeInTheDocument();
   });
 
-  it('disables Save until draft changes and shows loading on save', async () => {
+  it('disables Save until schedule changes and saves frequency', async () => {
+    updateParticipantStudyFrequency.mockResolvedValue({ study_frequency: 'weekly' });
     render(
       <MemoryRouter>
         <ParticipantSettings
@@ -45,9 +35,9 @@ describe('ParticipantSettings', () => {
     );
     const save = screen.getByTestId('participant-settings-save');
     expect(save).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Light' }));
+    fireEvent.click(screen.getByRole('radio', { name: /^Weekly/i }));
     expect(save).not.toBeDisabled();
     fireEvent.click(save);
-    await waitFor(() => expect(setTheme).toHaveBeenCalledWith('light'));
+    await waitFor(() => expect(updateParticipantStudyFrequency).toHaveBeenCalledWith('weekly'));
   });
 });

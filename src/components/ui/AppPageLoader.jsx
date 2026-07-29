@@ -1,13 +1,13 @@
 import { T } from '../../constants/tokens.js';
 import InlineLoadingIndicator from './InlineLoadingIndicator.jsx';
 
-export default function AppPageLoader({ label = 'Loading…', participant = false }) {
-  const background = participant ? 'var(--pt-bg, #060910)' : T.bg;
-  const color = participant ? 'var(--pt-text, #e2e8f0)' : T.text;
-  const muted = participant ? 'var(--pt-muted, #a0aec0)' : T.muted;
+export default function AppPageLoader({ label = 'Loading…' }) {
+  const background = 'var(--pt-bg, #060910)';
+  const color = 'var(--pt-text, #e2e8f0)';
+  const muted = 'var(--pt-muted, #a0aec0)';
   return (
     <div
-      className={`app-page-loader${participant ? ' app-page-loader--participant' : ''}`}
+      className="app-page-loader app-page-loader--participant"
       role="status"
       aria-live="polite"
       aria-busy="true"

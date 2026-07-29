@@ -1,6 +1,5 @@
 /** Must stay aligned with backend/app/services/signature_style.py */
-export const SIGNATURE_FONT_FAMILY =
-  '"Segoe Script", "Brush Script MT", "Snell Roundhand", "Apple Chancery", cursive';
+export const SIGNATURE_FONT_FAMILY = '"Dancing Script", cursive';
 
 export const signaturePreviewStyle = {
   fontFamily: SIGNATURE_FONT_FAMILY,
