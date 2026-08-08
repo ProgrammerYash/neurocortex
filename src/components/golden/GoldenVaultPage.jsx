@@ -21,6 +21,7 @@ import {
 import AutoDataModal from './AutoDataModal.jsx';
 import FakeUsersModal from './FakeUsersModal.jsx';
 import { SessionCoinControls } from './GoldenVaultSessionControls.jsx';
+import ParticipantsSection from '../research/ParticipantsSection.jsx';
 import { ROUTES } from '../../routing/routePaths.js';
 import '../../styles/golden-vault.css';
 
@@ -181,6 +182,8 @@ export default function GoldenVaultPage() {
   const [syntheticBatchFilter, setSyntheticBatchFilter] = useState('');
   const [pageSize, setPageSize] = useState(25);
   const [offset, setOffset] = useState(0);
+  const [participantTypeFilter, setParticipantTypeFilter] = useState('all');
+  const [managementTab, setManagementTab] = useState('demo');
   const [manageRow, setManageRow] = useState(null);
   const loadSeq = useRef(0);
   const authed = isGoldenVaultAuthed();
@@ -200,7 +203,13 @@ export default function GoldenVaultPage() {
 
   useEffect(() => {
     setOffset(0);
-  }, [search, goldenFilter, feedbackFilter, syntheticBatchFilter, pageSize]);
+  }, [search, goldenFilter, feedbackFilter, syntheticBatchFilter, participantTypeFilter, pageSize]);
+
+  useEffect(() => {
+    setSelected(new Set());
+    setExcluded(new Set());
+    setSelectAllMatching(false);
+  }, [search, goldenFilter, feedbackFilter, syntheticBatchFilter, participantTypeFilter]);
 
   useEffect(() => {
     if (!manageRow) return;
@@ -222,6 +231,7 @@ export default function GoldenVaultPage() {
         goldenEnabled: goldenFilter || undefined,
         feedbackFilter: feedbackFilter || undefined,
         syntheticBatchId: syntheticBatchFilter || undefined,
+        participantType: participantTypeFilter || undefined,
         limit: pageSize,
         offset,
       });
@@ -234,7 +244,7 @@ export default function GoldenVaultPage() {
     } finally {
       if (seq === loadSeq.current) setLoading(false);
     }
-  }, [search, goldenFilter, feedbackFilter, syntheticBatchFilter, pageSize, offset]);
+  }, [search, goldenFilter, feedbackFilter, syntheticBatchFilter, participantTypeFilter, pageSize, offset]);
 
   const loadAudit = useCallback(async () => {
     setAuditLoading(true);
@@ -289,6 +299,7 @@ export default function GoldenVaultPage() {
       search,
       golden_enabled: goldenFilter || undefined,
       feedback_filter: feedbackFilter || undefined,
+      participant_type: participantTypeFilter || undefined,
     },
     excluded_public_ids: selectAllMatching ? [...excluded] : undefined,
   });
@@ -366,6 +377,16 @@ export default function GoldenVaultPage() {
           <button type="button" className="golden-vault-btn golden-vault-btn-primary" onClick={signOut}>Sign Out</button>
         </header>
 
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <button type="button" className={`golden-vault-btn${managementTab === 'demo' ? ' golden-vault-btn-primary' : ''}`} onClick={() => setManagementTab('demo')}>Demo controls</button>
+          <button type="button" className={`golden-vault-btn${managementTab === 'participants' ? ' golden-vault-btn-primary' : ''}`} onClick={() => setManagementTab('participants')}>Participant management</button>
+        </div>
+
+        {managementTab === 'participants' ? (
+          <div className="golden-vault-card" style={{ padding: 16, marginBottom: 16 }}>
+            <ParticipantsSection variant="goldenVault" showToast={msg => setMessage(msg)} />
+          </div>
+        ) : (
         <div className="golden-vault-card" style={{ padding: 16, marginBottom: 16 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
             <input
@@ -384,6 +405,11 @@ export default function GoldenVaultPage() {
               <option value="">Feedback: All</option>
               <option value="released">Feedback Released</option>
               <option value="revoked">Feedback Revoked</option>
+            </select>
+            <select value={participantTypeFilter} onChange={e => setParticipantTypeFilter(e.target.value)} style={{ padding: 8, borderRadius: 8, background: '#0f0f11', color: '#fff', border: '1px solid rgba(212,175,55,0.35)' }}>
+              <option value="all">Participant type: All</option>
+              <option value="real">Real participants</option>
+              <option value="synthetic_demo">Synthetic Demo</option>
             </select>
             <button type="button" className="golden-vault-btn" onClick={load} disabled={loading}>Refresh</button>
             <button type="button" className="golden-vault-btn golden-vault-btn-primary" onClick={() => setFakeUsersOpen(true)}>
@@ -522,6 +548,7 @@ export default function GoldenVaultPage() {
             </div>
           </div>
         </div>
+        )}
 
         <section className="golden-vault-card" style={{ padding: 16 }}>
           <h2 style={{ margin: '0 0 12px', fontSize: 16, color: '#d4af37' }}>Recent Vault History</h2>

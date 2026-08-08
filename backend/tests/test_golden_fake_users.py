@@ -231,7 +231,7 @@ def test_fake_users_visible_on_researcher_dashboard(client: TestClient, db: Sess
     ids = [item["participantId"] for item in dash.json()["items"]]
     assert public_id in ids
     match = next(item for item in dash.json()["items"] if item["participantId"] == public_id)
-    assert match.get("participantType") == "synthetic_demo"
+    assert match.get("participantType") == "real"
 
 
 def test_preview_schedule_distribution_service(db: Session):

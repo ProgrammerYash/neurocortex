@@ -115,7 +115,15 @@ function ParticipantFeedbackControls({ detail, groqReady, onRefresh, showToast }
   );
 }
 
-export default function ParticipantDetailsPanel({ detail, onClose, onRefresh, showToast, groqReady = false }) {
+export default function ParticipantDetailsPanel({
+  detail,
+  onClose,
+  onRefresh,
+  showToast,
+  groqReady = false,
+  managementApi = null,
+  showSyntheticBadge = false,
+}) {
   const [actionRefresh, setActionRefresh] = useState(0);
   if (!detail) return null;
   return (
@@ -160,7 +168,7 @@ export default function ParticipantDetailsPanel({ detail, onClose, onRefresh, sh
             <div style={{ fontSize: 11, color: T.muted, textTransform: 'uppercase', letterSpacing: 1 }}>Participant details</div>
             <div style={{ fontFamily: T.mono, color: T.teal, fontSize: 14, marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               {detail.participantId}
-              {detail.participantType === 'synthetic_demo' ? <SyntheticDemoBadge /> : null}
+              {showSyntheticBadge && detail.participantType === 'synthetic_demo' ? <SyntheticDemoBadge /> : null}
             </div>
           </div>
           <Btn onClick={onClose}>Close</Btn>
@@ -241,7 +249,12 @@ export default function ParticipantDetailsPanel({ detail, onClose, onRefresh, sh
 
         <ParticipantMessaging detail={detail} showToast={showToast} />
 
-        <ParticipantConsentSection detail={detail} showToast={showToast} />
+        <ParticipantConsentSection
+          detail={detail}
+          showToast={showToast}
+          onRefresh={onRefresh}
+          consentApi={managementApi ? { fetchConsentPdf: managementApi.fetchConsentPdf, downloadConsent: managementApi.downloadConsent } : null}
+        />
 
         <AccountActionHistory participantId={detail.participantId} refreshKey={actionRefresh} />
       </div>

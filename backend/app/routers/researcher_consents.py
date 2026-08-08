@@ -10,7 +10,8 @@ from app.database import get_db
 from app.deps import get_current_researcher
 from app.models.researcher import Researcher
 from app.schemas.consent import ResearcherConsentPage
-from app.services.consent_pdf_service import ConsentPdfError, delivery_consent_pdf_for_record
+from app.services.consent_pdf_service import ConsentPdfError
+from app.services.legacy_consent_signature_service import delivery_bytes_for_record
 from app.services.audit_service import record_audit_event
 from app.services.researcher_consent_service import (
     ResearcherConsentError,
@@ -84,7 +85,7 @@ def view_consent_pdf(
     try:
         record = get_consent(db, consent_id)
         filename = safe_participant_filename(record.participant.public_id)
-        pdf_bytes = delivery_consent_pdf_for_record(record)
+        pdf_bytes = delivery_bytes_for_record(record)
         if record.signature_method == "typed":
             record_audit_event(
                 db,
@@ -117,7 +118,7 @@ def download_consent_pdf(
     try:
         record = get_consent(db, consent_id)
         filename = safe_participant_filename(record.participant.public_id)
-        pdf_bytes = delivery_consent_pdf_for_record(record)
+        pdf_bytes = delivery_bytes_for_record(record)
         if record.signature_method == "typed":
             record_audit_event(
                 db,

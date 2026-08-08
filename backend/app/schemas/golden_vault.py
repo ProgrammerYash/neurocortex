@@ -18,6 +18,9 @@ class GoldenVaultLoginResponse(BaseModel):
 class GoldenVaultParticipantRow(BaseModel):
     participantId: str
     displayName: str | None = None
+    joinedAt: str | None = None
+    joinedDisplay: str | None = None
+    participantType: str | None = None
     enabled: bool
     realCompletedSessions: int
     bonusSessions: int

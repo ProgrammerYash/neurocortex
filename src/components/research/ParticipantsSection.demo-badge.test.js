@@ -13,10 +13,15 @@ const dashboard = readFileSync(
 );
 
 describe('Phase 5J synthetic demo visibility', () => {
-  it('researcher participant table renders Synthetic Demo badge markup', () => {
-    expect(participantsSection).toContain('Synthetic Demo');
-    expect(participantsSection).toContain('participantType: participantTypeFilter');
-    expect(participantsSection).toContain('Includes synthetic demo participants.');
+  it('regular researcher participants section hides synthetic indicators', () => {
+    expect(participantsSection).toContain("variant === 'goldenVault'");
+    expect(participantsSection).toContain('showSyntheticBadge={isVault}');
+    expect(participantsSection).not.toContain('Includes synthetic demo participants.');
+  });
+
+  it('golden vault variant keeps participant type filter and badges', () => {
+    expect(participantsSection).toContain('PARTICIPANT_TYPE_FILTERS');
+    expect(participantsSection).toContain('SyntheticDemoBadge');
   });
 
   it('participant dashboard does not render Demo account badge', () => {

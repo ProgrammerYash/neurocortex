@@ -72,6 +72,21 @@ class DashboardParticipantRow(BaseModel):
     participantType: str = "real"
 
 
+class FixLegacySignatureResponse(BaseModel):
+    ok: bool
+    participantId: str
+    consentId: str
+    repaired: bool
+    alreadyRepaired: bool
+    originalSignedAt: datetime
+    deliveryPdfHash: str | None = None
+    repairVersion: str | None = None
+    signatureFormat: str | None = None
+    legacySignatureRepairEligible: bool = False
+    legacySignatureRepaired: bool = False
+    legacySignatureRepairedAt: datetime | None = None
+
+
 class DashboardParticipantsPage(BaseModel):
     items: list[DashboardParticipantRow]
     total: int
@@ -127,6 +142,10 @@ class DashboardParticipantDetail(BaseModel):
     consentVersion: str | None = None
     consentStudentSignedDisplay: str | None = None
     consentGuardianSignedDisplay: str | None = None
+    signatureFormat: str | None = None
+    legacySignatureRepairEligible: bool = False
+    legacySignatureRepaired: bool = False
+    legacySignatureRepairedAt: datetime | None = None
     studyFrequency: str | None = None
     studyFrequencyLabel: str = "Not Selected"
     feedbackStatus: str = "Not Released"

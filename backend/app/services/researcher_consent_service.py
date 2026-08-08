@@ -171,9 +171,10 @@ def build_all_consents_zip(db: Session) -> tempfile.SpooledTemporaryFile:
     spool = tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024, mode="w+b")
     try:
         with zipfile.ZipFile(spool, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
+            from app.services.legacy_consent_signature_service import delivery_bytes_for_record
             for record, filename in prepared:
                 try:
-                    pdf_bytes = delivery_consent_pdf_for_record(record)
+                    pdf_bytes = delivery_bytes_for_record(record)
                 except ConsentPdfError as exc:
                     raise ResearcherConsentError(str(exc), status_code=500) from exc
                 archive.writestr(filename, pdf_bytes)

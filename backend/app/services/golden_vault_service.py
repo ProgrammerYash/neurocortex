@@ -167,6 +167,7 @@ def _consent_display_name(db: Session, participant_id: UUID) -> str | None:
 
 
 def _participant_row_payload(
+    db: Session,
     *,
     participant: Participant,
     override: GoldenDemoOverride | None,
@@ -183,9 +184,17 @@ def _participant_row_payload(
         golden_override=override if enabled else None,
     )
     displayed_sessions = int(display.get("displayedCompletedSessions") or real_sessions)
+    from app.services.participant_enrollment import effective_participant_enrollment_at
+    from app.services.researcher_dashboard_service import format_study_date
+
+    enrollment_at = effective_participant_enrollment_at(db, participant=participant, override=override)
+    is_synthetic = bool(override and override.is_synthetic_generated)
     payload = {
         "participantId": participant.public_id,
         "displayName": display_name,
+        "joinedAt": enrollment_at.isoformat(),
+        "joinedDisplay": format_study_date(enrollment_at),
+        "participantType": "synthetic_demo" if is_synthetic else "real",
         "enabled": enabled,
         "realCompletedSessions": real_sessions,
         "bonusSessions": bonus_sessions if enabled else 0,
@@ -209,6 +218,7 @@ def _build_vault_filtered_query(
     golden_enabled: str | None,
     feedback_filter: str | None,
     synthetic_batch_id: str | None = None,
+    participant_type: str | None = None,
 ):
     query = _vault_participant_query(db, search=search).outerjoin(
         GoldenDemoOverride,
@@ -231,6 +241,12 @@ def _build_vault_filtered_query(
         query = query.where(GoldenDemoOverride.simulated_feedback_status == "Released")
     elif feedback_filter == "revoked":
         query = query.where(GoldenDemoOverride.simulated_feedback_status == "Revoked")
+    if participant_type == "real":
+        query = query.where(
+            or_(GoldenDemoOverride.is_synthetic_generated.is_(False), GoldenDemoOverride.id.is_(None))
+        )
+    elif participant_type == "synthetic_demo":
+        query = query.where(GoldenDemoOverride.is_synthetic_generated.is_(True))
     return query
 
 
@@ -243,6 +259,7 @@ def list_vault_participants(
     golden_enabled: str | None,
     feedback_filter: str | None,
     synthetic_batch_id: str | None = None,
+    participant_type: str | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     maybe_process_due_auto_sessions(db, batch_size=25)
     filtered = _build_vault_filtered_query(
@@ -251,6 +268,7 @@ def list_vault_participants(
         golden_enabled=golden_enabled,
         feedback_filter=feedback_filter,
         synthetic_batch_id=synthetic_batch_id,
+        participant_type=participant_type,
     )
     total = db.execute(select(func.count()).select_from(filtered.subquery())).scalar_one()
     participants = db.execute(
@@ -269,6 +287,7 @@ def list_vault_participants(
     names_map = _consent_display_names(db, ids)
     rows = [
         _participant_row_payload(
+            db,
             participant=participant,
             override=override_map.get(participant.id),
             real_sessions=sessions_map.get(participant.id, 0),
@@ -290,6 +309,7 @@ def get_vault_participant(db: Session, public_id: str) -> dict[str, Any] | None:
         return None
     override = get_override_for_participant(db, participant.id)
     return _participant_row_payload(
+        db,
         participant=participant,
         override=override,
         real_sessions=_real_completed_sessions(db, participant.id),
@@ -644,6 +664,8 @@ def _resolve_bulk_ids(
             search=filter_payload.get("search"),
             golden_enabled=filter_payload.get("golden_enabled"),
             feedback_filter=filter_payload.get("feedback_filter"),
+            synthetic_batch_id=filter_payload.get("synthetic_batch_id"),
+            participant_type=filter_payload.get("participant_type") or filter_payload.get("participantType"),
         )
         return [row["participantId"] for row in items if row["participantId"] not in excluded][:500]
     ids = []

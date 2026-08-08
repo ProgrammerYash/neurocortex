@@ -39,6 +39,7 @@ from app.schemas.research import (
     DashboardParticipantDetail,
     DashboardParticipantsPage,
     DashboardSummaryResponse,
+    FixLegacySignatureResponse,
     ResearchParticipantRecord,
     ResearchStatsResponse,
 )
@@ -588,7 +589,6 @@ def get_dashboard_participants(
     sort: str = Query(default="joined"),
     direction: str = Query(default="desc", pattern="^(asc|desc)$"),
     status: str | None = Query(default=None, alias="status"),
-    participant_type: str = Query(default="all", pattern="^(all|real|synthetic_demo)$"),
     _researcher: Researcher = Depends(get_current_researcher),
     db: Session = Depends(get_db),
 ) -> DashboardParticipantsPage:
@@ -603,7 +603,8 @@ def get_dashboard_participants(
         sort=sort,
         direction=direction,
         status_filter=status or "all_current",
-        participant_type_filter=participant_type,
+        participant_type_filter="all",
+        include_participant_type=False,
     )
     return DashboardParticipantsPage(items=items, total=total, limit=limit, offset=offset)
 
@@ -618,6 +619,50 @@ def get_dashboard_participant_detail_endpoint(
     if detail is None:
         raise HTTPException(status_code=404, detail="Participant not found")
     return DashboardParticipantDetail(**detail)
+
+
+@router.post(
+    "/dashboard/participants/{public_id}/consent/fix-legacy-signature",
+    response_model=FixLegacySignatureResponse,
+)
+def fix_legacy_consent_signature_endpoint(
+    public_id: str,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: Session = Depends(get_db),
+) -> FixLegacySignatureResponse:
+    from app.services.legacy_consent_signature_service import (
+        LegacyConsentRepairError,
+        fix_legacy_consent_signature,
+    )
+    from app.services.study_guard import apply_participant_filter
+    from app.models.participant import Participant
+    from sqlalchemy import select
+
+    participant = db.execute(
+        apply_participant_filter(select(Participant).where(Participant.public_id == public_id.upper()))
+    ).scalar_one_or_none()
+    if participant is None:
+        raise HTTPException(status_code=404, detail="Participant not found")
+    try:
+        result = fix_legacy_consent_signature(db, participant=participant, researcher=researcher)
+        db.commit()
+    except LegacyConsentRepairError as exc:
+        db.rollback()
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    return FixLegacySignatureResponse(
+        ok=result["ok"],
+        participantId=result["participant_id"],
+        consentId=result["consent_id"],
+        repaired=result["repaired"],
+        alreadyRepaired=result["already_repaired"],
+        originalSignedAt=result["original_signed_at"],
+        deliveryPdfHash=result.get("delivery_pdf_hash"),
+        repairVersion=result.get("repair_version"),
+        signatureFormat=result.get("signature_format"),
+        legacySignatureRepairEligible=result.get("legacy_signature_repair_eligible", False),
+        legacySignatureRepaired=result.get("legacy_signature_repaired", False),
+        legacySignatureRepairedAt=result.get("legacy_signature_repaired_at"),
+    )
 
 
 @router.post("/dashboard/participants/{public_id}/suspend", response_model=AccountActionResponse)

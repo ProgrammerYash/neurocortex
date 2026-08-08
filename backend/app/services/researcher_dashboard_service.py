@@ -323,6 +323,7 @@ def _build_participant_row(
     consent: ConsentRecord | None,
     withdrawal_status: str | None,
     metrics: dict[str, Any],
+    enrollment_at: datetime | None = None,
 ) -> dict[str, Any]:
     student_name = consent.participant_printed_name if consent else None
     guardian_name = consent.guardian_printed_name if consent else None
@@ -333,6 +334,7 @@ def _build_participant_row(
         sessions_started=metrics["sessions_started"],
     )
     last_active_at = metrics["last_active_at"]
+    joined = enrollment_at or participant.created_at
     return {
         "participantId": participant.public_id,
         "studentName": student_name,
@@ -340,8 +342,8 @@ def _build_participant_row(
         "grade": participant.grade,
         "ageRange": participant.age_range,
         "ageDisplay": format_participant_age_display(participant.age_years, participant.age_range),
-        "joinedAt": participant.created_at,
-        "joinedDisplay": format_study_date(participant.created_at),
+        "joinedAt": joined,
+        "joinedDisplay": format_study_date(joined),
         "sessions": metrics["sessions_started"],
         "lastActiveAt": last_active_at,
         "lastActiveDisplay": format_study_datetime(last_active_at),
@@ -395,7 +397,7 @@ def _sort_rows(rows: list[dict[str, Any]], sort: str, direction: str) -> list[di
     return sorted(rows, key=sort_key, reverse=reverse)
 
 
-def _compute_rows(db: Session, participants: list[Participant]) -> list[dict[str, Any]]:
+def _compute_rows(db: Session, participants: list[Participant], *, include_participant_type: bool = False) -> list[dict[str, Any]]:
     if not participants:
         return []
 
@@ -417,6 +419,8 @@ def _compute_rows(db: Session, participants: list[Participant]) -> list[dict[str
     )
     from app.services.golden_vault_service import load_overrides_map
 
+    from app.services.participant_enrollment import effective_participant_enrollment_at
+
     feedback_map = load_feedback_status_map(db, participant_ids)
     override_map = load_overrides_map(db, participant_ids)
 
@@ -429,8 +433,12 @@ def _compute_rows(db: Session, participants: list[Participant]) -> list[dict[str
             consent=consent_map.get(participant.id),
             withdrawal_status=withdrawal_map.get(participant.id),
             metrics=metrics,
+            enrollment_at=effective_participant_enrollment_at(
+                db, participant=participant, override=override
+            ),
         )
-        row["participantType"] = "synthetic_demo" if is_synthetic_demo else "real"
+        if include_participant_type:
+            row["participantType"] = "synthetic_demo" if is_synthetic_demo else "real"
         row["feedbackStatus"] = feedback_map.get(participant.id, RESEARCHER_STATUS_NOT_RELEASED)
         override = override_map.get(participant.id)
         display = resolve_participant_display_metrics(
@@ -514,8 +522,11 @@ def _summary_from_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _strip_internal(row: dict[str, Any]) -> dict[str, Any]:
-    return {key: value for key, value in row.items() if key not in ("_metrics", "_isAutoDataUser")}
+def _strip_internal(row: dict[str, Any], *, include_participant_type: bool = False) -> dict[str, Any]:
+    hidden = {"_metrics", "_isAutoDataUser"}
+    if not include_participant_type:
+        hidden.add("participantType")
+    return {key: value for key, value in row.items() if key not in hidden}
 
 
 def get_dashboard_summary(db: Session) -> dict[str, Any]:
@@ -556,6 +567,7 @@ def list_dashboard_participants(
     direction: str,
     status_filter: str | None = None,
     participant_type_filter: str = "all",
+    include_participant_type: bool = False,
 ) -> tuple[list[dict[str, Any]], int]:
     if sort not in SORT_FIELDS:
         sort = "joined"
@@ -563,11 +575,19 @@ def list_dashboard_participants(
         direction = "desc"
 
     participants = db.execute(_base_participant_query(db, search)).scalars().all()
-    rows = [_strip_internal(row) for row in _sort_rows(_compute_rows(db, participants), sort, direction)]
-    if participant_type_filter == "real":
-        rows = [row for row in rows if row.get("participantType") == "real"]
-    elif participant_type_filter == "synthetic_demo":
-        rows = [row for row in rows if row.get("participantType") == "synthetic_demo"]
+    rows = [
+        _strip_internal(row, include_participant_type=include_participant_type)
+        for row in _sort_rows(
+            _compute_rows(db, participants, include_participant_type=include_participant_type),
+            sort,
+            direction,
+        )
+    ]
+    if include_participant_type:
+        if participant_type_filter == "real":
+            rows = [row for row in rows if row.get("participantType") == "real"]
+        elif participant_type_filter == "synthetic_demo":
+            rows = [row for row in rows if row.get("participantType") == "synthetic_demo"]
     if status_filter:
         rows = [row for row in rows if matches_status_filter(row["status"], status_filter)]
     else:
@@ -584,13 +604,24 @@ def get_dashboard_participant_detail(db: Session, public_id: str) -> dict[str, A
     if participant is None:
         return None
 
-    rows = _compute_rows(db, [participant])
+    rows = _compute_rows(db, [participant], include_participant_type=True)
     if not rows:
         return None
-    row = _strip_internal(rows[0])
+    row = _strip_internal(rows[0], include_participant_type=True)
     metrics = rows[0]["_metrics"]
     account = account_state_payload(participant)
     consent = _load_consent_names(db, [participant.id]).get(participant.id)
+    from app.services.legacy_consent_signature_service import consent_signature_metadata
+
+    consent_meta: dict[str, Any] = {}
+    if consent is not None:
+        meta = consent_signature_metadata(consent)
+        consent_meta = {
+            "signatureFormat": meta.get("signature_format"),
+            "legacySignatureRepairEligible": meta.get("legacy_signature_repair_eligible"),
+            "legacySignatureRepaired": meta.get("legacy_signature_repaired"),
+            "legacySignatureRepairedAt": meta.get("legacy_signature_repaired_at"),
+        }
     return {
         **row,
         **account,
@@ -599,6 +630,7 @@ def get_dashboard_participant_detail(db: Session, public_id: str) -> dict[str, A
         "consentVersion": consent.consent_version if consent else None,
         "consentStudentSignedDisplay": format_study_datetime(consent.participant_signed_at) if consent else None,
         "consentGuardianSignedDisplay": format_study_datetime(consent.guardian_signed_at) if consent else None,
+        **consent_meta,
         "sessionsStarted": metrics["sessions_started"],
         "sessionsCompleted": row.get("displayedCompletedSessions", metrics["sessions_completed"]),
         "realCompletedSessions": row.get("realCompletedSessions", metrics["sessions_completed"]),

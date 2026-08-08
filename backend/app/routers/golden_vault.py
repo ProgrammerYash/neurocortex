@@ -114,6 +114,7 @@ def golden_vault_list_participants(
     golden_enabled: str | None = None,
     feedback_filter: str | None = None,
     synthetic_batch_id: str | None = None,
+    participant_type: str | None = Query(default=None, pattern="^(all|real|synthetic_demo)$"),
     _vault: dict = Depends(get_current_golden_vault),
     db: Session = Depends(get_db),
 ) -> GoldenVaultParticipantListResponse:
@@ -125,6 +126,7 @@ def golden_vault_list_participants(
         golden_enabled=golden_enabled,
         feedback_filter=feedback_filter,
         synthetic_batch_id=synthetic_batch_id,
+        participant_type=participant_type or "all",
     )
     return GoldenVaultParticipantListResponse(
         items=[GoldenVaultParticipantRow(**item) for item in items],
@@ -541,6 +543,18 @@ def golden_vault_bulk(
         _rollback(db)
         raise HTTPException(status_code=exc.status_code, detail={"message": exc.message}) from exc
     return GoldenVaultBulkResult(**result)
+
+
+@router.post("/synthetic-enrollment/repair")
+def golden_vault_repair_synthetic_enrollment(
+    _vault: dict = Depends(get_current_golden_vault),
+    db: Session = Depends(get_db),
+) -> dict[str, int]:
+    from app.services.synthetic_enrollment_repair import repair_all_synthetic_enrollments
+
+    result = repair_all_synthetic_enrollments(db)
+    _persist(db)
+    return result
 
 
 @router.get("/audit-history", response_model=list[GoldenVaultAuditItem])

@@ -19,7 +19,7 @@ from app.models.participant import Participant
 from app.models.participant_game_data import ParticipantGameData
 from app.schemas.game import GameDataPayload
 from app.services.audit_service import record_audit_event
-from app.services.electronic_consent_service import create_consent_record_uncommitted
+from app.services.synthetic_enrollment_repair import enrollment_at_for_batch_start
 from app.services.golden_vault_auto_data_service import (
     apply_auto_data_config,
     apply_backfill_batch,
@@ -319,6 +319,7 @@ def process_fake_user_batch_chunk(db: Session, *, batch_id: uuid.UUID) -> dict[s
             pin = "2468"
         try:
             public_id = _unique_public_id(db)
+            enrollment_at = enrollment_at_for_batch_start(batch.start_date)
             participant = Participant(
                 public_id=public_id,
                 pin_hash=hash_pin(pin),
@@ -328,6 +329,7 @@ def process_fake_user_batch_chunk(db: Session, *, batch_id: uuid.UUID) -> dict[s
                 age_consent_category="under_18",
                 pet_choice=profile["pet"],
                 study_frequency=map_participant_frequency(frequency),
+                created_at=enrollment_at,
             )
             db.add(participant)
             db.flush()
@@ -335,6 +337,8 @@ def process_fake_user_batch_chunk(db: Session, *, batch_id: uuid.UUID) -> dict[s
             apply_profile_to_override(row, generate_demo_profile(seed=profile["seed"]))
             row.is_synthetic_generated = True
             row.synthetic_batch_id = batch.id
+            row.synthetic_enrollment_at = enrollment_at
+            row.auto_data_start_date = batch.start_date
             db.add(row)
             db.flush()
             game_rng = random.Random(profile["seed"] + 17)
@@ -381,8 +385,12 @@ def process_fake_user_batch_chunk(db: Session, *, batch_id: uuid.UUID) -> dict[s
                     "consent_version": CONSENT_VERSION,
                     "survey_version": SURVEY_VERSION,
                     "template_sha256": EXPECTED_TEMPLATE_SHA256,
+                    "signed_at": enrollment_at,
+                    "synthetic_enrollment_at": enrollment_at,
                 }
             )
+            from app.services.electronic_consent_service import create_consent_record_uncommitted
+
             create_consent_record_uncommitted(db, participant=participant, payload=consent_payload)
             batch.successful_count += 1
             credentials.append({"publicId": public_id, "temporaryPin": pin})

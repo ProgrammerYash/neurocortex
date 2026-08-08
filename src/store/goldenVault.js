@@ -40,7 +40,7 @@ export function isGoldenVaultAuthed() {
   }
 }
 
-async function goldenApiRequest(path, { method = 'GET', body, auth = true, signal } = {}) {
+export async function goldenApiRequest(path, { method = 'GET', body, auth = true, signal } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (auth) {
     const token = getGoldenVaultToken();
@@ -90,6 +90,9 @@ export async function fetchGoldenVaultParticipants(params = {}, options = {}) {
   if (params.goldenEnabled) qs.set('golden_enabled', params.goldenEnabled);
   if (params.feedbackFilter) qs.set('feedback_filter', params.feedbackFilter);
   if (params.syntheticBatchId) qs.set('synthetic_batch_id', params.syntheticBatchId);
+  if (params.participantType && params.participantType !== 'all') {
+    qs.set('participant_type', params.participantType);
+  }
   return goldenApiRequest(`/v1/golden-vault/participants?${qs.toString()}`, { signal: options.signal });
 }
 

@@ -10,29 +10,41 @@ import {
   fetchParticipantAccountActions,
 } from '../../store/research.js';
 
-vi.mock('../../store/research.js', () => ({
-  fetchDashboardSummary: vi.fn(),
-  fetchDashboardParticipants: vi.fn(),
-  fetchDashboardParticipantDetail: vi.fn(),
-  fetchParticipantAccountActions: vi.fn(),
-  fetchGroqProviderStatus: vi.fn(),
-  buildBulkSelectionPayload: vi.fn(payload => payload),
-  bulkMessageParticipants: vi.fn(),
-  bulkEmailParticipants: vi.fn(),
-  bulkReleaseFeedback: vi.fn(),
-  bulkRevokeFeedback: vi.fn(),
-  bulkRefreshFeedback: vi.fn(),
-  bulkSuspendParticipants: vi.fn(),
-  bulkReactivateParticipants: vi.fn(),
-  bulkRemoveParticipants: vi.fn(),
-  releaseParticipantFeedback: vi.fn(),
-  refreshParticipantFeedback: vi.fn(),
-  revokeParticipantFeedback: vi.fn(),
-}));
+vi.mock('../../store/research.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    fetchDashboardSummary: vi.fn(),
+    fetchDashboardParticipants: vi.fn(),
+    fetchDashboardParticipantDetail: vi.fn(),
+    fetchParticipantAccountActions: vi.fn(),
+    fetchGroqProviderStatus: vi.fn(),
+    bulkMessageParticipants: vi.fn(),
+    bulkEmailParticipants: vi.fn(),
+    bulkReleaseFeedback: vi.fn(),
+    bulkRevokeFeedback: vi.fn(),
+    bulkRefreshFeedback: vi.fn(),
+    bulkSuspendParticipants: vi.fn(),
+    bulkReactivateParticipants: vi.fn(),
+    bulkRemoveParticipants: vi.fn(),
+    releaseParticipantFeedback: vi.fn(),
+    refreshParticipantFeedback: vi.fn(),
+    revokeParticipantFeedback: vi.fn(),
+  };
+});
 
-vi.mock('../../store/consent.js', () => ({
-  downloadAllConsents: vi.fn(),
-}));
+vi.mock('../../store/consent.js', () => {
+  const pdfPayload = {
+    blob: new Blob(['%PDF'], { type: 'application/pdf' }),
+    filename: 'NC-TEST-1-consent.pdf',
+    contentType: 'application/pdf',
+  };
+  return {
+    fetchConsentPdf: vi.fn(async () => pdfPayload),
+    downloadConsent: vi.fn(async () => pdfPayload),
+    downloadAllConsents: vi.fn(),
+  };
+});
 
 const summary = {
   totalParticipants: 2,
@@ -137,7 +149,7 @@ describe('ResearcherDashboard', () => {
     expect(screen.queryByText('Consent Forms')).not.toBeInTheDocument();
   });
 
-  it('shows participant type filter, synthetic badge, and API param', async () => {
+  it('does not expose participant type filter or synthetic badges on researcher dashboard', async () => {
     fetchDashboardParticipants.mockResolvedValue({
       items: [{ ...participantRow, participantId: 'NC-SYN-1', participantType: 'synthetic_demo' }],
       total: 1,
@@ -145,16 +157,12 @@ describe('ResearcherDashboard', () => {
       offset: 0,
     });
     render(<ResearcherDashboard onBack={() => {}} />);
-    expect(await screen.findByLabelText('Participant type filter')).toBeInTheDocument();
-    expect(screen.getByText('Includes synthetic demo participants.')).toBeInTheDocument();
-    expect(await screen.findByText('Synthetic Demo')).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText('Participant type filter'), { target: { value: 'synthetic_demo' } });
-    await waitFor(() => {
-      expect(fetchDashboardParticipants).toHaveBeenCalledWith(
-        expect.objectContaining({ participantType: 'synthetic_demo' }),
-      );
-    });
+    await screen.findByText('NC-SYN-1');
+    expect(screen.queryByLabelText('Participant type filter')).not.toBeInTheDocument();
+    expect(screen.queryByText('Synthetic Demo')).not.toBeInTheDocument();
+    expect(fetchDashboardParticipants).toHaveBeenCalledWith(
+      expect.not.objectContaining({ participantType: expect.anything() }),
+    );
   });
 
   it('shows empty and retry states', async () => {

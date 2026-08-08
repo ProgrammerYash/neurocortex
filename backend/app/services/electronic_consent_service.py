@@ -161,7 +161,16 @@ def create_consent_record_uncommitted(
             error_code="IDEMPOTENCY_KEY_REUSED",
         )
 
-    signed_at = datetime.now(UTC)
+    signed_at = payload.get("signed_at")
+    if signed_at is not None:
+        if signed_at.tzinfo is None:
+            signed_at = signed_at.replace(tzinfo=UTC)
+    elif payload.get("is_synthetic_demo_record") is True and payload.get("synthetic_enrollment_at") is not None:
+        signed_at = payload["synthetic_enrollment_at"]
+        if signed_at.tzinfo is None:
+            signed_at = signed_at.replace(tzinfo=UTC)
+    else:
+        signed_at = datetime.now(UTC)
     (
         participant_signature_png,
         guardian_signature_png,

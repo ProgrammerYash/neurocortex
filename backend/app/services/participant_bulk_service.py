@@ -60,6 +60,10 @@ def _resolve_public_ids(
             sort=filter_payload.get("sort") or "joined",
             direction=filter_payload.get("direction") or "desc",
             status_filter=filter_payload.get("status") or "all_current",
+            participant_type_filter=filter_payload.get("participantType")
+            or filter_payload.get("participant_type")
+            or "all",
+            include_participant_type=True,
         )
         ids = [row["participantId"] for row in items if row["participantId"] not in excluded]
         return ids[:500]

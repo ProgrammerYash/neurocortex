@@ -102,6 +102,7 @@ function ModalShell({ title, children, onClose }) {
 }
 
 export default function ParticipantBulkToolbar({
+  managementApi = null,
   selectedCount,
   selectionMode,
   selectedIds,
@@ -112,6 +113,16 @@ export default function ParticipantBulkToolbar({
   onComplete,
   showToast,
 }) {
+  const buildSelection = managementApi?.buildBulkSelectionPayload ?? buildBulkSelectionPayload;
+  const runBulkMessage = managementApi?.bulkMessageParticipants ?? bulkMessageParticipants;
+  const runBulkEmail = managementApi?.bulkEmailParticipants ?? bulkEmailParticipants;
+  const runBulkSuspend = managementApi?.bulkSuspendParticipants ?? bulkSuspendParticipants;
+  const runBulkReactivate = managementApi?.bulkReactivateParticipants ?? bulkReactivateParticipants;
+  const runBulkRemove = managementApi?.bulkRemoveParticipants ?? bulkRemoveParticipants;
+  const runBulkRelease = managementApi?.bulkReleaseFeedback ?? bulkReleaseFeedback;
+  const runBulkRevoke = managementApi?.bulkRevokeFeedback ?? bulkRevokeFeedback;
+  const runBulkRefresh = managementApi?.bulkRefreshFeedback ?? bulkRefreshFeedback;
+
   const [modal, setModal] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -126,7 +137,7 @@ export default function ParticipantBulkToolbar({
   const overLimit = selectedCount > MAX_BULK;
   const limitReason = `Select at most ${MAX_BULK} participants per bulk action.`;
 
-  const selectionPayload = buildBulkSelectionPayload({
+  const selectionPayload = buildSelection({
     selectionMode,
     selectedIds,
     excludedIds,
@@ -167,7 +178,7 @@ export default function ParticipantBulkToolbar({
       return;
     }
     await runBulk(
-      payload => bulkMessageParticipants({ ...payload, subject: cleanedSubject, body: cleanedBody }),
+      payload => runBulkMessage({ ...payload, subject: cleanedSubject, body: cleanedBody }),
       'Bulk message sent.',
     );
   };
@@ -180,21 +191,21 @@ export default function ParticipantBulkToolbar({
       return;
     }
     await runBulk(
-      payload => bulkEmailParticipants({ ...payload, subject: cleanedSubject, body: cleanedBody }),
+      payload => runBulkEmail({ ...payload, subject: cleanedSubject, body: cleanedBody }),
       'Bulk email queued.',
     );
   };
 
   const runSuspend = async () => {
     await runBulk(
-      payload => bulkSuspendParticipants({ ...payload, duration, reason: reason.trim() || undefined }),
+      payload => runBulkSuspend({ ...payload, duration, reason: reason.trim() || undefined }),
       'Bulk suspend completed.',
     );
   };
 
   const runReactivate = async () => {
     await runBulk(
-      payload => bulkReactivateParticipants({ ...payload, reason: reason.trim() || undefined }),
+      payload => runBulkReactivate({ ...payload, reason: reason.trim() || undefined }),
       'Bulk reactivate completed.',
     );
   };
@@ -206,17 +217,17 @@ export default function ParticipantBulkToolbar({
       return;
     }
     await runBulk(
-      payload => bulkRemoveParticipants({ ...payload, reason: cleanedReason }),
+      payload => runBulkRemove({ ...payload, reason: cleanedReason }),
       'Bulk remove completed.',
     );
   };
 
   const runFeedback = async action => {
     const fn = action === 'release'
-      ? bulkReleaseFeedback
+      ? runBulkRelease
       : action === 'revoke'
-        ? bulkRevokeFeedback
-        : bulkRefreshFeedback;
+        ? runBulkRevoke
+        : runBulkRefresh;
     const label = action === 'release' ? 'release' : action === 'revoke' ? 'revoke' : 'refresh';
     await runBulk(fn, `Bulk feedback ${label} completed.`);
   };

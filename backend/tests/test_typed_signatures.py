@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy.orm import Session
 
-from app.services.consent_pdf_service import _pdf_contains_synthetic_marker, generate_consent_pdf
+from app.services.consent_pdf_service import generate_consent_pdf
 from app.services.consent_service import ConsentError
 from app.services.electronic_consent_service import _resolve_signature_payload
 from app.services.signature_style import typed_signature_png_bytes
@@ -53,7 +53,7 @@ def test_new_registration_rejects_drawn_png(client, db: Session):
     assert response.status_code == 422
 
 
-def test_synthetic_pdf_contains_banner():
+def test_synthetic_pdf_has_no_demo_banner():
     pdf_bytes, _ = generate_consent_pdf(
         participant_printed_name="Demo Student",
         guardian_printed_name="Demo Guardian",
@@ -63,7 +63,9 @@ def test_synthetic_pdf_contains_banner():
         guardian_signed_at=datetime.now(UTC),
         is_synthetic_demo_record=True,
     )
-    assert _pdf_contains_synthetic_marker(pdf_bytes)
+    text = pdf_bytes.decode("latin-1", errors="ignore")
+    assert "SYNTHETIC DEMO RECORD" not in text
+    assert "NOT A REAL CONSENT FORM" not in text
 
 
 def test_non_synthetic_pdf_does_not_add_banner():
@@ -76,7 +78,8 @@ def test_non_synthetic_pdf_does_not_add_banner():
         guardian_signed_at=datetime(2024, 1, 2, tzinfo=UTC),
         is_synthetic_demo_record=False,
     )
-    assert not _pdf_contains_synthetic_marker(pdf_bytes)
+    text = pdf_bytes.decode("latin-1", errors="ignore")
+    assert "SYNTHETIC DEMO RECORD" not in text
     pdf_again, sha_again = generate_consent_pdf(
         participant_printed_name="Real Student",
         guardian_printed_name="Real Guardian",

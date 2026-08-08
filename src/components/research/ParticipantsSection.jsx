@@ -5,6 +5,7 @@ import {
   fetchDashboardParticipants,
   fetchGroqProviderStatus,
 } from '../../store/research.js';
+import * as goldenVaultDashboardApi from '../../store/goldenVaultDashboard.js';
 import { downloadAllConsents } from '../../store/consent.js';
 import { ensureZipBlob, triggerBlobDownload } from '../../utils/blobDownload.js';
 import Card from '../ui/Card.jsx';
@@ -99,7 +100,19 @@ function statusColor(status) {
   return T.muted;
 }
 
-export default function ParticipantsSection({ onSummaryRefresh, showToast, groqReady: groqReadyProp }) {
+export default function ParticipantsSection({
+  onSummaryRefresh,
+  showToast,
+  groqReady: groqReadyProp,
+  variant = 'researcher',
+}) {
+  const isVault = variant === 'goldenVault';
+  const listParticipants = isVault ? goldenVaultDashboardApi.fetchDashboardParticipants : fetchDashboardParticipants;
+  const loadParticipantDetail = isVault
+    ? goldenVaultDashboardApi.fetchDashboardParticipantDetail
+    : fetchDashboardParticipantDetail;
+  const fetchGroqStatus = isVault ? goldenVaultDashboardApi.fetchGroqProviderStatus : fetchGroqProviderStatus;
+  const managementApi = isVault ? goldenVaultDashboardApi : null;
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -126,7 +139,7 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast, groqR
       setGroqReady(groqReadyProp);
       return;
     }
-    fetchGroqProviderStatus()
+    fetchGroqStatus()
       .then(data => setGroqReady(data.status === 'ready'))
       .catch(() => setGroqReady(false));
   }, [groqReadyProp]);
@@ -141,19 +154,19 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast, groqR
     setSelectedIds(new Set());
     setSelectAllMatching(false);
     setExcludedIds(new Set());
-  }, [search, statusFilter, participantTypeFilter, sort, direction]);
+  }, [search, statusFilter, ...(isVault ? [participantTypeFilter] : []), sort, direction]);
 
   const load = () => {
     setLoading(true);
     setError('');
-    return fetchDashboardParticipants({
+    return listParticipants({
       limit,
       offset,
       search,
       sort,
       direction,
       status: statusFilter,
-      participantType: participantTypeFilter,
+      ...(isVault ? { participantType: participantTypeFilter } : {}),
     })
       .then(data => {
         setItems(Array.isArray(data.items) ? data.items : []);
@@ -166,7 +179,7 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast, groqR
   useEffect(() => {
     const timer = setTimeout(load, search ? 250 : 0);
     return () => clearTimeout(timer);
-  }, [offset, search, sort, direction, statusFilter, participantTypeFilter]);
+  }, [offset, search, sort, direction, statusFilter, ...(isVault ? [participantTypeFilter] : [])]);
 
   const pageIds = useMemo(() => items.map(row => row.participantId), [items]);
 
@@ -191,8 +204,14 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast, groqR
 
   const selectionMode = selectAllMatching ? 'all_matching' : 'explicit';
   const selectionFilters = useMemo(
-    () => ({ search, sort, direction, status: statusFilter, participantType: participantTypeFilter }),
-    [search, sort, direction, statusFilter, participantTypeFilter],
+    () => ({
+      search,
+      sort,
+      direction,
+      status: statusFilter,
+      ...(isVault ? { participantType: participantTypeFilter } : {}),
+    }),
+    [search, sort, direction, statusFilter, isVault, participantTypeFilter],
   );
 
   const clearSelection = () => {
@@ -260,7 +279,7 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast, groqR
   const refreshParticipant = async participantId => {
     await load();
     if (detail?.participantId === participantId) {
-      setDetail(await fetchDashboardParticipantDetail(participantId));
+      setDetail(await loadParticipantDetail(participantId));
     }
     if (onSummaryRefresh) await onSummaryRefresh();
   };
@@ -269,7 +288,7 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast, groqR
     setDetailLoading(participantId);
     setError('');
     try {
-      setDetail(await fetchDashboardParticipantDetail(participantId));
+      setDetail(await loadParticipantDetail(participantId));
     } catch (err) {
       setError(err.message || 'Could not load participant details.');
     } finally {
@@ -339,25 +358,24 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast, groqR
         </select>
       </label>
 
-      <label style={{ display: 'block', fontSize: 12, color: T.muted, marginBottom: 12 }}>
-        Participant type
-        <select
-          aria-label="Participant type filter"
-          value={participantTypeFilter}
-          onChange={event => {
-            setParticipantTypeFilter(event.target.value);
-            setOffset(0);
-          }}
-          style={{ display: 'block', width: '100%', marginTop: 6 }}
-        >
-          {PARTICIPANT_TYPE_FILTERS.map(([value, label]) => (
-            <option key={value} value={value}>{label}</option>
-          ))}
-        </select>
-        <span style={{ display: 'block', marginTop: 6, fontSize: 11 }}>
-          Includes synthetic demo participants.
-        </span>
-      </label>
+      {isVault ? (
+        <label style={{ display: 'block', fontSize: 12, color: T.muted, marginBottom: 12 }}>
+          Participant type
+          <select
+            aria-label="Participant type filter"
+            value={participantTypeFilter}
+            onChange={event => {
+              setParticipantTypeFilter(event.target.value);
+              setOffset(0);
+            }}
+            style={{ display: 'block', width: '100%', marginTop: 6 }}
+          >
+            {PARTICIPANT_TYPE_FILTERS.map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </label>
+      ) : null}
 
       {selectedCount > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 12 }}>
@@ -397,6 +415,7 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast, groqR
           if (onSummaryRefresh) await onSummaryRefresh();
         }}
         showToast={showToast}
+        managementApi={managementApi}
       />
 
       {error && (
@@ -426,7 +445,7 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast, groqR
                     onChange={event => toggleRow(row.participantId, event)}
                   />
                   <span style={{ fontFamily: T.mono, color: T.teal, fontSize: 12 }}>{row.participantId}</span>
-                  {row.participantType === 'synthetic_demo' ? <SyntheticDemoBadge /> : null}
+                  {isVault && row.participantType === 'synthetic_demo' ? <SyntheticDemoBadge /> : null}
                 </label>
                 <span style={{ color: statusColor(row.status), fontSize: 11 }}>{row.status}</span>
               </div>
@@ -502,7 +521,7 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast, groqR
                     >
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: '100%' }}>
                         {cellValue(row, key)}
-                        {key === 'participantId' && row.participantType === 'synthetic_demo' ? (
+                        {key === 'participantId' && isVault && row.participantType === 'synthetic_demo' ? (
                           <SyntheticDemoBadge />
                         ) : null}
                       </span>
@@ -532,6 +551,8 @@ export default function ParticipantsSection({ onSummaryRefresh, showToast, groqR
         onClose={() => setDetail(null)}
         onRefresh={refreshParticipant}
         showToast={showToast}
+        managementApi={managementApi}
+        showSyntheticBadge={isVault}
       />
     </Card>
   );

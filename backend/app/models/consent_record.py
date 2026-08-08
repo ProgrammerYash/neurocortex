@@ -80,12 +80,26 @@ class ConsentRecord(Base):
     )
     synthetic_batch_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
 
+    legacy_signature_repaired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    legacy_signature_repaired_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    legacy_signature_repair_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    repaired_delivery_pdf_bytes: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    repaired_delivery_pdf_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
     participant: Mapped["Participant"] = relationship(back_populates="consent_records")
 
 
 @event.listens_for(ConsentRecord, "before_update")
 def prevent_completed_consent_mutation(_mapper, _connection, target: ConsentRecord) -> None:
-    allowed = {"revoked_at", "revocation_reason"}
+    allowed = {
+        "revoked_at",
+        "revocation_reason",
+        "legacy_signature_repaired_at",
+        "legacy_signature_repaired_by",
+        "legacy_signature_repair_version",
+        "repaired_delivery_pdf_bytes",
+        "repaired_delivery_pdf_sha256",
+    }
     state = inspect(target)
     changed = {
         attribute.key

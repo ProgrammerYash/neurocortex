@@ -11,12 +11,16 @@ vi.mock('../../store/consent.js', () => ({
   downloadAllConsents: vi.fn(),
 }));
 
-vi.mock('../../store/research.js', () => ({
-  fetchDashboardParticipants: vi.fn(),
-  fetchDashboardParticipantDetail: vi.fn(),
-  fetchParticipantAccountActions: vi.fn(),
-  fetchGroqProviderStatus: vi.fn(async () => ({ status: 'ready' })),
-}));
+vi.mock('../../store/research.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    fetchDashboardParticipants: vi.fn(),
+    fetchDashboardParticipantDetail: vi.fn(),
+    fetchParticipantAccountActions: vi.fn(),
+    fetchGroqProviderStatus: vi.fn(async () => ({ status: 'ready' })),
+  };
+});
 
 const pdfPayload = {
   blob: new Blob(['%PDF'], { type: 'application/pdf' }),
